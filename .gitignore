@@ -10,3 +10,12 @@ Debug/
 Release/
 x64/
 x86/
+
+# C++ 빌드 결과물 및 무거운 파일 확장자 무시
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.dll
+*.exp

@@ -18,7 +18,7 @@ public:
 
 	bool Initialize();
 
-	ID3D12Device* GetDevice() { return mD3D12Device.Get(); }
-	IDXGIFactory4* GetFactory() { return mDxgiFactory.Get(); }
+	ID3D12Device* GetDevice() const { return mD3D12Device.Get(); }
+	IDXGIFactory4* GetFactory() const { return mDxgiFactory.Get(); }
 };
 

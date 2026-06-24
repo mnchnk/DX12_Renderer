@@ -24,8 +24,8 @@ public:
 	bool Initialize(GraphicsDevice* device);
 	void FlushCommandQueue();
 	
-	ID3D12CommandAllocator* GetCommandAllocator() { return mCommandAllocator.Get(); }
-	ID3D12CommandQueue* GetCommandQueue() { return mCommandQueue.Get(); }
-	ID3D12GraphicsCommandList* GetCommandList() { return mCommandList.Get(); }
+	ID3D12CommandAllocator* GetCommandAllocator() const { return mCommandAllocator.Get(); }
+	ID3D12CommandQueue* GetCommandQueue() const { return mCommandQueue.Get(); }
+	ID3D12GraphicsCommandList* GetCommandList() const { return mCommandList.Get(); }
 };
 
