@@ -1,9 +1,11 @@
 #include "Renderer.h"
 #include <memory>
 #include <d3d12.h>
+#include <DirectXMath.h>
 #include "GraphicsDevice.h"
 #include "CommandQueue.h"
 #include "SwapChain.h"
+#include "Util.h"
 
 bool Renderer::Initialize()
 {
@@ -22,6 +24,13 @@ bool Renderer::Initialize()
     mScissorRect.top = 0;
     mScissorRect.right = mClientWidth;
     mScissorRect.bottom = mClientHeight;
+    
+    ID3D12GraphicsCommandList* cmdList = mCommandQueue->GetCommandList();
+    ThrowIfFailed(cmdList->Close());
+    ID3D12CommandList* cmdsLists[] = { cmdList };
+    mCommandQueue->GetCommandQueue()->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+
+    mCommandQueue->FlushCommandQueue();
 
     return true;
 }

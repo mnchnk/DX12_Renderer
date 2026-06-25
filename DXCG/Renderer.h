@@ -17,7 +17,7 @@ private:
 	std::unique_ptr<ID3D12RootSignature> mRootSignature;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;	
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
-
+	
 	D3D12_VIEWPORT mScreenViewport;
 	D3D12_RECT mScissorRect;
 
@@ -25,6 +25,7 @@ private:
 	UINT mClientHeight = 600;
 
 	HWND mHWnd;
+
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
@@ -35,6 +36,9 @@ public:
 	bool InitializePSOs();
 
 	void Update();
+	void UpdateObjectConstants();
+	void UpdatePassConstants();
+
 	void Draw();
 };
 

@@ -125,12 +125,14 @@
   <ItemGroup>
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="GraphicsDevice.cpp" />
+    <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CommandQueue.h" />
     <ClInclude Include="GraphicsDevice.h" />
+    <ClInclude Include="Renderer.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="Util.h" />
   </ItemGroup>
