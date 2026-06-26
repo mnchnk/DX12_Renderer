@@ -16,6 +16,7 @@ private:
 
 	std::unique_ptr<ID3D12RootSignature> mRootSignature;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;	
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 	
 	D3D12_VIEWPORT mScreenViewport;
@@ -32,7 +33,7 @@ public:
 
 	bool Initialize();
 	bool InitializeRootSignature();
-	bool InitializeShaders();
+	bool InitializeShadersAndInputLayout();
 	bool InitializePSOs();
 
 	void Update();
