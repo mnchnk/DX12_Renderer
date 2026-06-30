@@ -6,10 +6,27 @@
 #include "GraphicsDevice.h"
 #include "CommandQueue.h"
 #include "SwapChain.h"
+#include "FrameResource.h"
+
+enum class RenderItemType
+{
+	Opaque = 0
+
+};
+
+struct RenderItem
+{
+	DirectX::XMFLOAT4X4 World;
+	DirectX::XMFLOAT4X4 TexTransform;
+
+	UINT ObjectCBIndex;
+	UINT8 NumFramesDirty = 3;
+};
 
 class Renderer
 {
 private:
+	//Graphics Basic 
 	std::unique_ptr<GraphicsDevice> mGraphicsDevice;
 	std::unique_ptr<CommandQueue> mCommandQueue;
 	std::unique_ptr<SwapChain> mSwapChain;
@@ -27,11 +44,21 @@ private:
 
 	HWND mHWnd;
 
+	//FrameResource
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	UINT8 mCurrFrameResourceIndex;
+	FrameResource* mCurrFrameResource = nullptr;
+
+	//RenderItem
+	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
+	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
+
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
 
 	bool Initialize();
+	bool InitializeFrameResource();
 	bool InitializeRootSignature();
 	bool InitializeShadersAndInputLayout();
 	bool InitializePSOs();

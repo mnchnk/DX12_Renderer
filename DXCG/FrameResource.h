@@ -60,7 +60,9 @@ struct FrameResource
 public:
     FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
     {
-
+        PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
+        ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
+        MaterialBuffer = std::make_unique<UploadBuffer<Material>>(device, materialCount, false);
     }
 
     FrameResource(const FrameResource& rhs) = delete;
@@ -68,4 +70,10 @@ public:
     ~FrameResource() = default;
 
     ComPtr<ID3D12CommandAllocator> CmdAllocator;
+    
+    std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
+    std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
+    std::unique_ptr<UploadBuffer<Material>> MaterialBuffer = nullptr;
+    
+    UINT64 Fence = 0;
 };

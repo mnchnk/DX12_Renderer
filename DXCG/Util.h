@@ -7,48 +7,10 @@
 #include <d3dcompiler.h>
 #include <wrl.h>
 
+using Microsoft::WRL::ComPtr;
+
 inline void ThrowIfFailed(HRESULT hr);
-ComPtr<ID3DBlob> CompileShader(const std::wstring& fileName, const D3D_SHADER_MACRO* defines, const std::string& entryPoint, const std::string& target);
-
-inline void ThrowIfFailed(HRESULT hr)
-{
-    if (FAILED(hr))
-    {
-        _com_error err(hr);
-        std::wstring msg = err.ErrorMessage();
-
-        std::string strMsg(msg.begin(), msg.end());
-        throw std::runtime_error(strMsg);
-    }
-}
-
-ComPtr<ID3DBlob> CompileShader(
-    const std::wstring& filename,
-    const D3D_SHADER_MACRO* defines,
-    const std::string& entrypoint,
-    const std::string& target)
-{
-    UINT compileFlags = 0;
-
-#if defined(DEBUG) || defined(_DEBUG)  
-    compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-
-    HRESULT hr = S_OK;
-
-    ComPtr<ID3DBlob> byteCode = nullptr;
-    ComPtr<ID3DBlob> errors;
-    hr = D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-        entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors);
-
-    if (errors != nullptr)
-        OutputDebugStringA((char*)errors->GetBufferPointer());
-
-    ThrowIfFailed(hr);
-
-    return byteCode;
-
-}
+ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 
 class MathHelper
 {
@@ -62,3 +24,55 @@ public:
     }
 };
 
+
+template<typename T>
+class UploadBuffer
+{
+public:
+    UploadBuffer(ID3D12Device* device, UINT elementCount, bool isConstantBuffer) :
+        mIsConstantBuffer(isConstantBuffer)
+    {
+        mElementByteSize = sizeof(T);
+
+        if (isConstantBuffer)
+            mElementByteSize = (sizeof(T) + 255) & ~255;
+
+        ThrowIfFailed(device->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(mElementByteSize * elementCount),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&mUploadBuffer)));
+
+        ThrowIfFailed(mUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mMappedData)));
+
+    }
+
+    UploadBuffer(const UploadBuffer& rhs) = delete;
+    UploadBuffer& operator=(const UploadBuffer& rhs) = delete;
+    ~UploadBuffer()
+    {
+        if (mUploadBuffer != nullptr)
+            mUploadBuffer->Unmap(0, nullptr);
+
+        mMappedData = nullptr;
+    }
+
+    ID3D12Resource* Resource()const
+    {
+        return mUploadBuffer.Get();
+    }
+
+    void CopyData(int elementIndex, const T& data)
+    {
+        memcpy(&mMappedData[elementIndex * mElementByteSize], &data, sizeof(T));
+    }
+
+private:
+    Microsoft::WRL::ComPtr<ID3D12Resource> mUploadBuffer;
+    BYTE* mMappedData = nullptr;
+
+    UINT mElementByteSize = 0;
+    bool mIsConstantBuffer = false;
+};

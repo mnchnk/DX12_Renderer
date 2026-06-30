@@ -7,6 +7,8 @@
 #include "SwapChain.h"
 #include "Util.h"
 
+using namespace DirectX;
+
 bool Renderer::Initialize()
 {
 	mGraphicsDevice->Initialize();
@@ -25,6 +27,11 @@ bool Renderer::Initialize()
     mScissorRect.right = mClientWidth;
     mScissorRect.bottom = mClientHeight;
     
+    InitializeFrameResource();
+    InitializeRootSignature();
+    InitializeShadersAndInputLayout();
+    InitializePSOs();
+
     ID3D12GraphicsCommandList* cmdList = mCommandQueue->GetCommandList();
     ThrowIfFailed(cmdList->Close());
     ID3D12CommandList* cmdsLists[] = { cmdList };
@@ -32,6 +39,18 @@ bool Renderer::Initialize()
 
     mCommandQueue->FlushCommandQueue();
 
+    return true;
+}
+
+bool Renderer::InitializeFrameResource()
+{
+    for (int i = 0; i < MaxFrameResource; i++)
+    {
+        mFrameResources[i] = std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 3, 3, 3);
+    }
+
+    mCurrFrameResourceIndex = 0;
+    mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
     return true;
 }
 
@@ -43,7 +62,7 @@ bool Renderer::InitializeRootSignature()
 bool Renderer::InitializeShadersAndInputLayout()
 {
     //mShaders["standardVS"] = CompileShader();
-    //mShaders['standardPS"] = CompileShader();
+    //mShaders["standardPS"] = CompileShader();
 
     mInputLayout =
     {
@@ -61,16 +80,40 @@ bool Renderer::InitializePSOs()
 
 void Renderer::Update()
 {
+    UpdateObjectConstants();
+    UpdatePassConstants();
+
+
 }
 
 void Renderer::UpdateObjectConstants()
 {
+    auto currObjectCB = mCurrFrameResource->ObjectCB.get();
+
+    for (auto& e : mAllRenderItems)
+    {
+        if (e->NumFramesDirty > 0)
+        {
+            XMMATRIX world = XMLoadFloat4x4(&e->World);
+            XMMATRIX texTransform = XMLoadFloat4x4(&e->TexTransform);
+
+            ObjectConstants objConstants;
+            XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
+            XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
+            
+            currObjectCB->CopyData(e->ObjectCBIndex, objConstants);
+
+            e->NumFramesDirty--;
+        }
+    }
 }
 
 void Renderer::UpdatePassConstants()
 {
+
 }
 
 void Renderer::Draw()
 {
+
 }
