@@ -7,6 +7,7 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "FrameResource.h"
+#include "Camera.h"
 
 enum class RenderItemType
 {
@@ -31,7 +32,7 @@ private:
 	std::unique_ptr<CommandQueue> mCommandQueue;
 	std::unique_ptr<SwapChain> mSwapChain;
 
-	std::unique_ptr<ID3D12RootSignature> mRootSignature;
+	ComPtr<ID3D12RootSignature> mRootSignature;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;	
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
@@ -53,6 +54,12 @@ private:
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
 	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
 
+	//CB
+	PassConstants mPassCB;
+
+	//camera
+	Camera mMainCamera;
+
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
@@ -66,6 +73,8 @@ public:
 	void Update();
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
+	void UpdateMaterialBuffer();
+	void UpdateCamera();
 
 	void Draw();
 };

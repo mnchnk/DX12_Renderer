@@ -123,19 +123,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="FrameResource.h" />
     <ClCompile Include="GraphicsDevice.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="Util.cpp" />
     <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="CommandQueue.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="Util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="FragmentShader.hlsl" />
+    <FxCompile Include="VertexShader.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

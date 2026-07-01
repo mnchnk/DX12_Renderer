@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="소스 파일\Shader">
+      <UniqueIdentifier>{178087c2-2d56-4f21-9ffe-56f299df2b32}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WinMain.cpp">
@@ -33,6 +36,12 @@
     <ClCompile Include="FrameResource.h">
       <Filter>헤더 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Util.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GraphicsDevice.h">
@@ -50,5 +59,16 @@
     <ClInclude Include="Renderer.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="VertexShader.hlsl">
+      <Filter>소스 파일\Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="FragmentShader.hlsl">
+      <Filter>소스 파일\Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -119,3 +119,10 @@ D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentRtvHandle() const
 	handle.ptr += mCurrentBackBufferIndex * mRtvDescriptorSize;
 	return handle;
 }
+
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE SwapChain::GetCurrentDsvHandle() const
+{
+	return mDsvHeap->GetCPUDescriptorHandleForHeapStart();
+}

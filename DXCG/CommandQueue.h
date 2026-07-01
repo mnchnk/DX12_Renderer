@@ -13,7 +13,7 @@ private:
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
 	
-	Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
+	ComPtr<ID3D12Fence> mFence;
 	UINT64 mCurrentFenceValue = 0; 
 	HANDLE mFenceEvent = nullptr;
 
@@ -27,5 +27,8 @@ public:
 	ID3D12CommandAllocator* GetCommandAllocator() const { return mCommandAllocator.Get(); }
 	ID3D12CommandQueue* GetCommandQueue() const { return mCommandQueue.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return mCommandList.Get(); }
+	ID3D12Fence* GetFence() const { return mFence.Get(); }
+
+	UINT mCurrFence = 0;
 };
 

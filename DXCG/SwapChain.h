@@ -38,6 +38,8 @@ public:
 	UINT getWidth() const { return mWidth; }
 	UINT getHeight() const { return mHeight; }
 	ID3D12Resource* GetCurrentRenderTarget() const { return mRenderTargets[mCurrentBackBufferIndex].Get(); }
+
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtvHandle() const;
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentDsvHandle() const;
 };
 
