@@ -64,10 +64,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="VertexShader.hlsl">
-      <Filter>소스 파일\Shader</Filter>
-    </FxCompile>
-    <FxCompile Include="FragmentShader.hlsl">
+    <FxCompile Include="Default.hlsl">
       <Filter>소스 파일\Shader</Filter>
     </FxCompile>
   </ItemGroup>

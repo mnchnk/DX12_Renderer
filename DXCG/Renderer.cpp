@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include <memory>
+#include <array>
 #include <d3d12.h>
 #include "d3dx12.h"
 #include <DirectXMath.h>
@@ -8,6 +9,10 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "Util.h"
+
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 using namespace DirectX;
 
@@ -29,10 +34,12 @@ bool Renderer::Initialize()
     mScissorRect.right = mClientWidth;
     mScissorRect.bottom = mClientHeight;
     
-    InitializeFrameResource();
-    InitializeRootSignature();
-    InitializeShadersAndInputLayout();
-    InitializePSOs();
+    if (!(
+        InitializeFrameResource() &&
+        InitializeRootSignature() &&
+        InitializeShadersAndInputLayout() &&
+        InitializePSOs()
+        )) return false;
 
     ID3D12GraphicsCommandList* cmdList = mCommandQueue->GetCommandList();
     ThrowIfFailed(cmdList->Close());
@@ -58,13 +65,50 @@ bool Renderer::InitializeFrameResource()
 
 bool Renderer::InitializeRootSignature()
 {
-    return false;
+    //CD3DX12_DESCRIPTOR_RANGE texTable;
+    //texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 0, 0); // 2번째 파라미터는 텍스처 개수
+
+    CD3DX12_ROOT_PARAMETER slotRootParameter[3];
+
+    slotRootParameter[0].InitAsConstantBufferView(0);
+    slotRootParameter[1].InitAsConstantBufferView(1);
+    slotRootParameter[2].InitAsShaderResourceView(0, 1);
+    //slotRootParameter[3].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+
+    auto staticSamplers = GetStaticSamplers();
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter,
+        (UINT)staticSamplers.size(), staticSamplers.data(),
+        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+    ComPtr<ID3DBlob> serializedRootSig = nullptr;
+    ComPtr<ID3DBlob> errorBlob = nullptr;
+    HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+        serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
+
+    if (errorBlob != nullptr)
+    {
+        ::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+    }
+    ThrowIfFailed(hr);
+
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateRootSignature(
+        0,
+        serializedRootSig->GetBufferPointer(),
+        serializedRootSig->GetBufferSize(),
+        IID_PPV_ARGS(mRootSignature.GetAddressOf())));
+    return true;
+}
+
+bool Renderer::InitializeDescriptorHeaps()
+{
+    return true;
 }
 
 bool Renderer::InitializeShadersAndInputLayout()
 {
-    mShaders["standardVS"] = CompileShader(L"VertexShader.hlsl", nullptr, "VS", "vs_5_1");
-    mShaders["standardPS"] = CompileShader(L"FragmentShader.hlsl", nullptr, "PS", "ps_5_1");
+    mShaders["standardVS"] = CompileShader(L"Default.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["standardPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayout =
     {
@@ -95,7 +139,184 @@ bool Renderer::InitializePSOs()
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
-    return false;
+    return true;
+}
+
+void Renderer::InitializeShapesGeometry()
+{
+    // 1. 24개의 정점 배열 생성 (위치, 법선, UV)
+    // 각 면마다 4개의 정점을 가집니다. (Front, Back, Top, Bottom, Left, Right)
+    std::array<Vertex, 24> vertices =
+    {
+        // 앞면 (Front) - 법선 Z는 -1
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) }),
+
+        // 뒷면 (Back) - 법선 Z는 +1
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) }),
+
+        // 윗면 (Top) - 법선 Y는 +1
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
+
+        // 아랫면 (Bottom) - 법선 Y는 -1
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
+
+        // 왼쪽면 (Left) - 법선 X는 -1
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
+
+        // 오른쪽면 (Right) - 법선 X는 +1
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
+        Vertex({ XMFLOAT3(+0.5f, -0.5f, +0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) })
+    };
+
+    std::array<std::uint16_t, 36> indices =
+    {
+        // 앞면
+        0, 1, 2,  0, 2, 3,
+        // 뒷면
+        4, 5, 6,  4, 6, 7,
+        // 윗면
+        8, 9, 10, 8, 10, 11,
+        // 아랫면
+        12, 13, 14, 12, 14, 15,
+        // 왼쪽면
+        16, 17, 18, 16, 18, 19,
+        // 오른쪽면
+        20, 21, 22, 20, 22, 23
+    };
+
+    const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+    const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+    auto geo = std::make_unique<MeshGeometry>();
+    geo->Name = "boxGeo";
+
+    ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+    CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+    ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+    CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+    geo->VertexBufferGPU = CreateDefaultBuffer(mGraphicsDevice->GetDevice(),
+        mCommandQueue->GetCommandList(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+    geo->IndexBufferGPU = CreateDefaultBuffer(mGraphicsDevice->GetDevice(),
+        mCommandQueue->GetCommandList(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+    geo->VertexByteStride = sizeof(Vertex);
+    geo->VertexBufferByteSize = vbByteSize;
+    geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+    geo->IndexBufferByteSize = ibByteSize;
+
+    SubmeshGeometry submesh;
+    submesh.IndexCount = (UINT)indices.size();
+    submesh.StartIndexLocation = 0;
+    submesh.BaseVertexLocation = 0;
+
+    geo->DrawArgs["box"] = submesh;
+
+    mGeometries[geo->Name] = std::move(geo);
+}
+
+void Renderer::InitializeMaterials()
+{
+
+}
+
+void Renderer::InitializeRenderItem()
+{
+    auto boxRitem = std::make_unique<RenderItem>();
+
+    XMStoreFloat4x4(&boxRitem->World, XMMatrixIdentity());
+
+    boxRitem->ObjectCBIndex = 0;
+    boxRitem->Geo = mGeometries["boxGeo"].get();
+    boxRitem->Mat = mMaterials["boxMat"].get();
+
+    boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+    boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
+    boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
+    boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
+
+    boxRitem->NumFramesDirty = 3;
+
+    mAllRenderItems.push_back(std::move(boxRitem));
+}
+
+void Renderer::LoadTextures()
+{
+
+}
+
+std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> Renderer::GetStaticSamplers()
+{
+    const CD3DX12_STATIC_SAMPLER_DESC pointWrap(
+        0, // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_POINT, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
+        1, // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_POINT, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC linearWrap(
+        2, // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC linearClamp(
+        3, // shaderRegister
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
+
+    const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(
+        4, // shaderRegister
+        D3D12_FILTER_ANISOTROPIC, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressW
+        0.0f,                             // mipLODBias
+        8);                               // maxAnisotropy
+
+    const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(
+        5, // shaderRegister
+        D3D12_FILTER_ANISOTROPIC, // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressW
+        0.0f,                              // mipLODBias
+        8);                                // maxAnisotropy
+
+    return {
+        pointWrap, pointClamp,
+        linearWrap, linearClamp,
+        anisotropicWrap, anisotropicClamp };
 }
 
 void Renderer::Update()
@@ -114,8 +335,6 @@ void Renderer::Update()
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateCamera();
-    
-
 }
 
 void Renderer::UpdateObjectConstants()
@@ -168,6 +387,8 @@ void Renderer::UpdatePassConstants()
 
 void Renderer::UpdateMaterialBuffer()
 {
+    auto currMaterialBuffer = mCurrFrameResource->MaterialBuffer.get();
+
 
 }
 
@@ -217,4 +438,26 @@ void Renderer::Draw()
     mCurrFrameResource->Fence = ++mCommandQueue->mCurrFence;
 
     mCommandQueue->GetCommandQueue()->Signal(mCommandQueue->GetFence(), mCommandQueue->mCurrFence);
+}
+
+void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
+{
+    UINT objCBByteSize = CalcConstantBufferByteSize(sizeof(ObjectConstants));
+
+    auto objectCB = mCurrFrameResource->ObjectCB->Resource();
+
+    for (int i = 0; i < ritems.size(); ++i)
+    {
+        auto ri = ritems[i];
+
+        cmdList->IASetVertexBuffers(0, 1, &ri->Geo->VertexBufferView());
+        cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
+        cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
+
+        D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjectCBIndex * objCBByteSize;
+
+        cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+
+        cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
+    }
 }

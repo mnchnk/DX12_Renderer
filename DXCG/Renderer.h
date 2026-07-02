@@ -8,6 +8,7 @@
 #include "SwapChain.h"
 #include "FrameResource.h"
 #include "Camera.h"
+#include <array>
 
 enum class RenderItemType
 {
@@ -17,11 +18,23 @@ enum class RenderItemType
 
 struct RenderItem
 {
+	RenderItem() = default;
+	RenderItem(const RenderItem& rhs) = delete;
+
 	DirectX::XMFLOAT4X4 World;
 	DirectX::XMFLOAT4X4 TexTransform;
 
-	UINT ObjectCBIndex;
-	UINT8 NumFramesDirty = 3;
+	UINT ObjectCBIndex = -1;
+	UINT8 NumFramesDirty = MaxFrameResource;
+
+	Material* Mat = nullptr;
+	MeshGeometry* Geo = nullptr;
+
+	D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	UINT IndexCount = 0;
+	UINT StartIndexLocation = 0;
+	int BaseVertexLocation = 0;
 };
 
 class Renderer
@@ -53,6 +66,9 @@ private:
 	//RenderItem
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
 	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
+	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
+	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
+	//std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 
 	//CB
 	PassConstants mPassCB;
@@ -67,8 +83,15 @@ public:
 	bool Initialize();
 	bool InitializeFrameResource();
 	bool InitializeRootSignature();
+	bool InitializeDescriptorHeaps();
 	bool InitializeShadersAndInputLayout();
 	bool InitializePSOs();
+
+	void InitializeShapesGeometry();
+	void InitializeMaterials();
+	void InitializeRenderItem();
+	void LoadTextures();
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
 	void Update();
 	void UpdateObjectConstants();
@@ -77,5 +100,6 @@ public:
 	void UpdateCamera();
 
 	void Draw();
+	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 };
 

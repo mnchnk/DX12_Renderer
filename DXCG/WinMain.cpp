@@ -1,6 +1,8 @@
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
 #include <Windows.h>
+#include <crtdbg.h>
+#include "Renderer.h"
 
 // 주 창의 핸들
 HWND ghMainWnd = 0;
@@ -14,9 +16,15 @@ WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd)
 {
-	if(!InitWindowsApp(hInstance, nShowCmd)) return 0;
+#if defined(DEBUG) | defined(_DEBUG)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 
-	return Run();
+	Renderer theApp(hInstance, 800, 600);
+	if (!theApp.Initialize())
+		return 0;
+
+	return theApp.Run();
 }
 
 bool InitWindowsApp(HINSTANCE instanceHandle, int show)
