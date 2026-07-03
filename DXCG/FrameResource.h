@@ -48,9 +48,31 @@ struct PassConstants
     Light Lights[MAXLIGHT];
 };
 
+struct MaterialConstants
+{
+    DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+    DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+    float Roughness = 0.25f;
+    DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
+
+    UINT DiffuseMapIndex = 0;
+    UINT MaterialPad0;
+    UINT MaterialPad1;
+    UINT MaterialPad2;
+};
+
 struct Material
 {
+    std::string Name;
+    int MatCBIndex = -1;
+    int DiffuseSrvHeapIndex = -1;
+    int NormalSrvHeapIndex = -1;
+    int NumFramesDirty = MaxFrameResource;
 
+    DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+    DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+    float Roughness = 0.25f;
+    DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
 };
 
 struct Vertex
@@ -67,7 +89,7 @@ public:
     {
         PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
         ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
-        MaterialBuffer = std::make_unique<UploadBuffer<Material>>(device, materialCount, false);
+        MaterialBuffer = std::make_unique<UploadBuffer<MaterialConstants>>(device, materialCount, false);
     }
 
     FrameResource(const FrameResource& rhs) = delete;
@@ -78,7 +100,7 @@ public:
     
     std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
     std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
-    std::unique_ptr<UploadBuffer<Material>> MaterialBuffer = nullptr;
+    std::unique_ptr<UploadBuffer<MaterialConstants>> MaterialBuffer = nullptr;
     
     UINT64 Fence = 0;
 };

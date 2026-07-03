@@ -53,7 +53,7 @@ bool Renderer::Initialize()
     InitializeMaterials();
     InitializeRenderItem();
 
-    mMainCamera.SetPosition(0.0f, 0.0f, -5.0f); // 상자 밖으로 나오기
+    mMainCamera.SetPosition(0.0f, 0.0f, -5.0f);
 
     mMainCamera.SetLens(0.25f * XM_PI, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
     mMainCamera.UpdateProjMatrix();
