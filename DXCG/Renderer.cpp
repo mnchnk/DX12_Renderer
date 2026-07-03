@@ -18,6 +18,12 @@ using namespace DirectX;
 
 bool Renderer::Initialize()
 {
+
+
+    mGraphicsDevice = std::make_unique<GraphicsDevice>();
+    mCommandQueue = std::make_unique<CommandQueue>();
+    mSwapChain = std::make_unique<SwapChain>();
+
 	mGraphicsDevice->Initialize();
 	mCommandQueue->Initialize(mGraphicsDevice.get());
 	mSwapChain->Initialize(mGraphicsDevice.get(), mCommandQueue.get(), mHWnd, mClientWidth, mClientHeight);
@@ -34,12 +40,25 @@ bool Renderer::Initialize()
     mScissorRect.right = mClientWidth;
     mScissorRect.bottom = mClientHeight;
     
+    ThrowIfFailed(mCommandQueue->GetCommandList()->Reset(mCommandQueue->GetCommandAllocator(), nullptr));
+
     if (!(
         InitializeFrameResource() &&
         InitializeRootSignature() &&
         InitializeShadersAndInputLayout() &&
         InitializePSOs()
         )) return false;
+
+    InitializeShapesGeometry();
+    InitializeMaterials();
+    InitializeRenderItem();
+
+    mMainCamera.SetPosition(0.0f, 0.0f, -5.0f); // 상자 밖으로 나오기
+
+    mMainCamera.SetLens(0.25f * XM_PI, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
+    mMainCamera.UpdateProjMatrix();
+
+    mMainCamera.mViewDirty = true;
 
     ID3D12GraphicsCommandList* cmdList = mCommandQueue->GetCommandList();
     ThrowIfFailed(cmdList->Close());
@@ -53,9 +72,10 @@ bool Renderer::Initialize()
 
 bool Renderer::InitializeFrameResource()
 {
+
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources[i] = std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 3, 3, 3);
+        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 3, 3, 3));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -257,6 +277,7 @@ void Renderer::InitializeRenderItem()
 
     boxRitem->NumFramesDirty = 3;
 
+    mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
     mAllRenderItems.push_back(std::move(boxRitem));
 }
 
@@ -426,6 +447,8 @@ void Renderer::Draw()
     auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
     commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
 
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChain->GetCurrentRenderTarget(),
         D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
@@ -460,4 +483,25 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
 
         cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
     }
+}
+
+int Renderer::Run()
+{
+    MSG msg = { 0 };
+
+    while (msg.message != WM_QUIT)
+    {
+        if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        else
+        {
+            Update();
+            Draw();
+        }
+    }
+
+    return (int)msg.wParam;
 }

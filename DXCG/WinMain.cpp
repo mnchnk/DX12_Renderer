@@ -4,7 +4,7 @@
 #include <crtdbg.h>
 #include "Renderer.h"
 
-// 주 창의 핸들
+// 주 창의 핸들  
 HWND ghMainWnd = 0;
 
 bool InitWindowsApp(HINSTANCE instanceHandle, int show);
@@ -20,7 +20,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCm
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-	Renderer theApp(hInstance, 800, 600);
+	if (!InitWindowsApp(hInstance, nShowCmd))
+		return 0;
+
+	Renderer theApp(ghMainWnd, 800, 600);
 	if (!theApp.Initialize())
 		return 0;
 

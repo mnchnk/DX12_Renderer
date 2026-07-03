@@ -101,5 +101,7 @@ public:
 
 	void Draw();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+
+	int Run();
 };
 
