@@ -48,7 +48,7 @@ struct PassConstants
     Light Lights[MAXLIGHT];
 };
 
-struct MaterialConstants
+struct MaterialData
 {
     DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
     DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
@@ -89,7 +89,7 @@ public:
     {
         PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
         ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
-        MaterialBuffer = std::make_unique<UploadBuffer<MaterialConstants>>(device, materialCount, false);
+        MaterialBuffer = std::make_unique<UploadBuffer<MaterialData>>(device, materialCount, false);
     }
 
     FrameResource(const FrameResource& rhs) = delete;
@@ -100,7 +100,7 @@ public:
     
     std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
     std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
-    std::unique_ptr<UploadBuffer<MaterialConstants>> MaterialBuffer = nullptr;
+    std::unique_ptr<UploadBuffer<MaterialData>> MaterialBuffer = nullptr;
     
     UINT64 Fence = 0;
 };

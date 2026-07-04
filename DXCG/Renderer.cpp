@@ -256,7 +256,51 @@ void Renderer::InitializeShapesGeometry()
 
 void Renderer::InitializeMaterials()
 {
+    auto plastic = std::make_unique<Material>();
+    plastic->Name = "plastic";
+    plastic->MatCBIndex = 0;
+    plastic->DiffuseSrvHeapIndex = -1;
+    plastic->DiffuseAlbedo = XMFLOAT4(0.0f, 0.2f, 0.6f, 1.0f);
+    plastic->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);      
+    plastic->Roughness = 0.2f;                                
 
+    auto wood = std::make_unique<Material>();
+    wood->Name = "wood";
+    wood->MatCBIndex = 1;
+    wood->DiffuseSrvHeapIndex = -1;
+    wood->DiffuseAlbedo = XMFLOAT4(0.4f, 0.2f, 0.0f, 1.0f);
+    wood->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
+    wood->Roughness = 0.8f;
+
+    auto iron = std::make_unique<Material>();
+    iron->Name = "iron";
+    iron->MatCBIndex = 2;
+    iron->DiffuseSrvHeapIndex = -1;
+    iron->DiffuseAlbedo = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);    
+    iron->FresnelR0 = XMFLOAT3(0.56f, 0.57f, 0.58f);           
+    iron->Roughness = 0.4f;                                    
+
+    auto copper = std::make_unique<Material>();
+    copper->Name = "copper";
+    copper->MatCBIndex = 3;
+    copper->DiffuseSrvHeapIndex = -1;
+    copper->DiffuseAlbedo = XMFLOAT4(0.05f, 0.05f, 0.05f, 1.0f);
+    copper->FresnelR0 = XMFLOAT3(0.95f, 0.64f, 0.54f);         
+    copper->Roughness = 0.2f;                                  
+
+    auto gold = std::make_unique<Material>();
+    gold->Name = "gold";
+    gold->MatCBIndex = 4;
+    gold->DiffuseSrvHeapIndex = -1;
+    gold->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);   .
+    gold->FresnelR0 = XMFLOAT3(1.00f, 0.71f, 0.29f);          
+    gold->Roughness = 0.1f;                                   
+
+    mMaterials[plastic->Name] = std::move(plastic);
+    mMaterials[wood->Name] = std::move(wood);
+    mMaterials[iron->Name] = std::move(iron);
+    mMaterials[copper->Name] = std::move(copper);
+    mMaterials[gold->Name] = std::move(gold);
 }
 
 void Renderer::InitializeRenderItem()
@@ -410,7 +454,25 @@ void Renderer::UpdateMaterialBuffer()
 {
     auto currMaterialBuffer = mCurrFrameResource->MaterialBuffer.get();
 
+    for (auto& e : mMaterials)
+    {
+        Material* mat = e.second.get();
+        if (mat->NumFramesDirty)
+        {
+            MaterialData matData;
+            matData.DiffuseAlbedo = mat->DiffuseAlbedo;
+            matData.FresnelR0 = mat->FresnelR0;
+            matData.Roughness = mat->Roughness;
+            matData.DiffuseMapIndex = mat->DiffuseSrvHeapIndex;
+            
+            XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
+            XMStoreFloat4x4(&matData.MatTransform, XMMatrixTranspose(matTransform));
 
+            currMaterialBuffer->CopyData(mat->MatCBIndex, matData);
+
+            mat->NumFramesDirty--;
+        }
+    }
 }
 
 void Renderer::UpdateCamera()

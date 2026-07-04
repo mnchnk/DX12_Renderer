@@ -1,14 +1,4 @@
-#define MaxLights 16
-
-struct Light
-{
-    float3 Strength;
-    float FalloffStart; // point/spot light only
-    float3 Direction; // directional/spot light only
-    float FalloffEnd; // point/spot light only
-    float3 Position; // point light only
-    float SpotPower; // spot light only
-};
+#include "LightingUtils.hlsl"
 
 SamplerState gsamPointWrap : register(s0);
 SamplerState gsamPointClamp : register(s1);
@@ -17,7 +7,6 @@ SamplerState gsamLinearClamp : register(s3);
 SamplerState gsamAnisotropicWrap : register(s4);
 SamplerState gsamAnisotropicClamp : register(s5);
 
-// Constant data that varies per frame.
 cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
@@ -28,7 +17,6 @@ cbuffer cbPerObject : register(b0)
     uint gObjPad2;
 };
 
-// Constant data that varies per material.
 cbuffer cbPass : register(b1)
 {
     float4x4 gView;
@@ -68,7 +56,6 @@ struct VertexOut
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
 };
-
 
 VertexOut VS(VertexIn vin)
 {
