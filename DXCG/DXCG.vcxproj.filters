@@ -67,5 +67,8 @@
     <FxCompile Include="Default.hlsl">
       <Filter>소스 파일\Shader</Filter>
     </FxCompile>
+    <FxCompile Include="LightingUtils.hlsl">
+      <Filter>소스 파일\Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

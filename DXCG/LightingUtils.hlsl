@@ -25,13 +25,13 @@ float CalcAttenuation(float d, float falloffStart, float falloffEnd)
     return saturate((falloffEnd - d) / (falloffEnd - falloffStart));
 }
 
-float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
+float3 SchlickFresnel(float3 R0, float3 halfVec, float3 lightVec)
 {
-    float cosIncidentAngle = saturate(dot(normal, lightVec));
+    float cosIncidentAngle = saturate(dot(halfVec, lightVec));
     float f0 = 1.0f - cosIncidentAngle;
-    float3 reflectPercent = R0 + (1.0f - R0) * (f0 * f0 * f0 * f0);
-    
-    return reflectPercent;
+
+    float f0_5 = f0 * f0 * f0 * f0 * f0;
+    return R0 + (1.0f - R0) * f0_5;
 }
 
 float DistributionGGX(float3 N, float3 H, float roughness)
@@ -62,4 +62,66 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
     return ggx1 * ggx2;
+}
+
+float3 ComputeBRDF(Light L, Material mat, float3 normal, float3 viewVec, float3 lightVec)
+{
+    float3 halfVec = normalize(lightVec + viewVec);
+    float NdotL = max(dot(normal, lightVec), 0.0f);
+    float NdotV = max(dot(normal, viewVec), 0.0f);
+
+    float D = DistributionGGX(normal, halfVec, mat.Roughness);
+    float3 F = SchlickFresnel(mat.FresnelR0, halfVec, lightVec);
+    float G = GeometrySmith(normal, viewVec, lightVec, mat.Roughness);
+
+    float3 specular = (D * F * G) / max(4.0f * NdotV * NdotL, 0.001f);
+    float3 kD = 1.0f - F;
+    float3 diffuse = kD * mat.DiffuseAlbedo.rgb * INV_PI;
+
+    return (diffuse + specular) * NdotL;
+}
+
+// 1. 방향광
+float3 ComputeDirectionalLight(Light L, Material mat, float3 normal, float3 viewVec)
+{
+    float3 lightVec = normalize(-L.Direction);
+    float3 brdf = ComputeBRDF(L, mat, normal, viewVec, lightVec);
+    
+    return brdf * L.Strength;
+}
+
+// 2. 점광원
+float3 ComputePointLight(Light L, Material mat, float3 posW, float3 normal, float3 viewVec)
+{
+    float3 lightVec = L.Position - posW;
+    float d = length(lightVec);
+    
+    if (d > L.FalloffEnd)
+        return float3(0.0f, 0.0f, 0.0f);
+    
+    lightVec /= d; 
+    
+    float atten = CalcAttenuation(d, L.FalloffStart, L.FalloffEnd);
+    float3 brdf = ComputeBRDF(L, mat, normal, viewVec, lightVec);
+    
+    return brdf * L.Strength * atten;
+}
+
+// 3. 스포트라이트
+float3 ComputeSpotLight(Light L, Material mat, float3 posW, float3 normal, float3 viewVec)
+{
+    float3 lightVec = L.Position - posW;
+    float d = length(lightVec);
+    
+    if (d > L.FalloffEnd)
+        return float3(0.0f, 0.0f, 0.0f);
+    
+    lightVec /= d; // 정규화
+    
+    float atten = CalcAttenuation(d, L.FalloffStart, L.FalloffEnd);
+    float spotFactor = pow(max(dot(-lightVec, L.Direction), 0.0f), L.SpotPower);
+    
+    float3 brdf = ComputeBRDF(L, mat, normal, viewVec, lightVec);
+    
+    return brdf * L.Strength * atten * spotFactor;
 }

@@ -1,5 +1,9 @@
 #include "LightingUtils.hlsl"
 
+#define NUM_DIR_LIGHTS 3
+#define NUM_POINT_LIGHTS 0
+#define NUM_SPOT_LIGHTS 0
+
 SamplerState gsamPointWrap : register(s0);
 SamplerState gsamPointClamp : register(s1);
 SamplerState gsamLinearWrap : register(s2);
@@ -42,6 +46,20 @@ cbuffer cbPass : register(b1)
     Light gLights[MaxLights];
 };
 
+struct MaterialData
+{
+    float4 DiffuseAlbedo;
+    float3 FresnelR0;
+    float Roughness;
+    float4x4 MatTransform;
+    uint DiffuseMapIndex;
+    uint MatPad0;
+    uint MatPad1;
+    uint MatPad2;
+};
+
+StructuredBuffer<MaterialData> gMaterialData : register(t0);
+
 struct VertexIn
 {
     float3 PosL : POSITION;
@@ -72,5 +90,44 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    return float4(1.0f, 0.0f, 0.0f, 1.0f);
+    float3 N = normalize(pin.NormalW);
+    float3 V = normalize(gEyePosW - pin.PosW);
+
+    MaterialData matData = gMaterialData[gMaterialIndex];
+    
+    Material mat;
+    mat.DiffuseAlbedo = matData.DiffuseAlbedo;
+    mat.FresnelR0 = matData.FresnelR0;
+    mat.Roughness = matData.Roughness;
+
+    float3 finalColor = float3(0.0f, 0.0f, 0.0f);
+
+    int i = 0;
+
+    // 1. 방향광 누적 계산
+    for (i = 0; i < NUM_DIR_LIGHTS; ++i)
+    {
+        finalColor += ComputeDirectionalLight(gLights[i], mat, N, V);
+    }
+
+    // 2. 점광원 누적 계산
+    for (i = NUM_DIR_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; ++i)
+    {
+        finalColor += ComputePointLight(gLights[i], mat, pin.PosW, N, V);
+    }
+
+    // 3. 스포트라이트 누적 계산
+    for (i = NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS + NUM_SPOT_LIGHTS; ++i)
+    {
+        finalColor += ComputeSpotLight(gLights[i], mat, pin.PosW, N, V);
+    }
+
+    // 간접광(Ambient) 추가 및 감마 보정
+    float3 ambient = gAmbientLight.rgb * mat.DiffuseAlbedo.rgb;
+    finalColor += ambient;
+    
+    // HDR 색상을 LDR(모니터)로 맞추기 위한 Tone Mapping이 들어간다면 여기서 수행합니다.
+    finalColor = pow(finalColor, float3(1.0f / 2.2f, 1.0f / 2.2f, 1.0f / 2.2f));
+
+    return float4(finalColor, mat.DiffuseAlbedo.a);
 }

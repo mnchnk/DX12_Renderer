@@ -92,7 +92,7 @@ bool Renderer::InitializeRootSignature()
 
     slotRootParameter[0].InitAsConstantBufferView(0);
     slotRootParameter[1].InitAsConstantBufferView(1);
-    slotRootParameter[2].InitAsShaderResourceView(0, 1);
+    slotRootParameter[2].InitAsShaderResourceView(0, 0);
     //slotRootParameter[3].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
     auto staticSamplers = GetStaticSamplers();
@@ -128,7 +128,7 @@ bool Renderer::InitializeDescriptorHeaps()
 bool Renderer::InitializeShadersAndInputLayout()
 {
     mShaders["standardVS"] = CompileShader(L"Default.hlsl", nullptr, "VS", "vs_5_1");
-    mShaders["standardPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
+    mShaders["PBRPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayout =
     {
@@ -145,7 +145,7 @@ bool Renderer::InitializePSOs()
     psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
     psoDesc.pRootSignature = mRootSignature.Get();
     psoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["standardVS"]->GetBufferPointer()), mShaders["standardVS"]->GetBufferSize() };
-    psoDesc.PS = { reinterpret_cast<BYTE*>(mShaders["standardPS"]->GetBufferPointer()), mShaders["standardPS"]->GetBufferSize() };
+    psoDesc.PS = { reinterpret_cast<BYTE*>(mShaders["PBRPS"]->GetBufferPointer()), mShaders["PBRPS"]->GetBufferSize() };
     psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -292,7 +292,7 @@ void Renderer::InitializeMaterials()
     gold->Name = "gold";
     gold->MatCBIndex = 4;
     gold->DiffuseSrvHeapIndex = -1;
-    gold->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);   .
+    gold->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
     gold->FresnelR0 = XMFLOAT3(1.00f, 0.71f, 0.29f);          
     gold->Roughness = 0.1f;                                   
 
@@ -311,7 +311,7 @@ void Renderer::InitializeRenderItem()
 
     boxRitem->ObjectCBIndex = 0;
     boxRitem->Geo = mGeometries["boxGeo"].get();
-    boxRitem->Mat = mMaterials["boxMat"].get();
+    boxRitem->Mat = mMaterials["copper"].get();
 
     boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
@@ -399,6 +399,7 @@ void Renderer::Update()
 
     UpdateObjectConstants();
     UpdatePassConstants();
+    UpdateMaterialBuffer();
     UpdateCamera();
 }
 
@@ -417,6 +418,8 @@ void Renderer::UpdateObjectConstants()
             XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
             XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
             
+            objConstants.MaterialIndex = e->Mat->MatCBIndex;
+
             currObjectCB->CopyData(e->ObjectCBIndex, objConstants);
 
             e->NumFramesDirty--;
@@ -445,6 +448,10 @@ void Renderer::UpdatePassConstants()
     mPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
     mPassCB.NearZ = 1.0f;
     mPassCB.FarZ = 1000.0f;
+
+    mPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+    mPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+    mPassCB.Lights[0].Strength = { 0.8f, 0.8f, 0.8f };
 
     auto currPassCB = mCurrFrameResource->PassCB.get();
     currPassCB->CopyData(0, mPassCB);
