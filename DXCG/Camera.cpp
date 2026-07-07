@@ -8,6 +8,28 @@ void Camera::SetLens(float foV, float aspect, float nearZ, float farZ)
 	mFarZ = farZ;
 }
 
+void Camera::Update(float dt)
+{
+	if (InputManager::GetInstance()->IsKeyDown('W'))
+		Walk(10.0f * dt);
+	if (InputManager::GetInstance()->IsKeyDown('S'))
+		Walk(-10.0f * dt);
+	if (InputManager::GetInstance()->IsKeyDown('A'))
+		Strafe(-10.0f * dt);
+	if (InputManager::GetInstance()->IsKeyDown('D'))
+		Strafe(10.0f * dt);
+
+	if (InputManager::GetInstance()->IsLeftMouseDown())
+	{
+		// 변화량 계산 후 회전
+	}
+
+	if (mViewDirty)
+	{
+		UpdateViewMatrix();
+	}
+}
+
 void Camera::Strafe(float d)
 {
 	XMVECTOR s = XMVectorReplicate(d);

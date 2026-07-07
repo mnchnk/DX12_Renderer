@@ -69,16 +69,20 @@ private:
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unique_ptr<class TextureManager> mTextureManger;
+	
 	//CB
 	PassConstants mPassCB;
 
-	//camera
+	//Camera
 	Camera mMainCamera;
+
+	//Move
 
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
 
+	//Initialize
 	bool Initialize();
 	bool InitializeFrameResource();
 	bool InitializeRootSignature();
@@ -92,15 +96,17 @@ public:
 	void LoadTextures();
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
+	//Update
 	void Update();
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
 	void UpdateMaterialBuffer();
-	void UpdateCamera();
 
+	//Draw
 	void Draw();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 
+	//Run
 	int Run();
 };
 

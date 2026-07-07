@@ -1,5 +1,6 @@
 #pragma once
 #include <DirectXMath.h>
+#include "InputManager.h"
 
 using namespace DirectX;
 
@@ -25,10 +26,10 @@ public:
 	
 	XMMATRIX GetProj() const { return XMLoadFloat4x4(&mProj); }
 	XMFLOAT4X4 GetProj4x4() const { return mProj; }
+	
+	void Update(float dt);
 
-	bool mViewDirty = false;
-
-public:
+private:
 	void Strafe(float d);
 	void Walk(float d);
 	void Pitch(float angle);
@@ -51,5 +52,6 @@ private:
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
 
+	bool mViewDirty = false;
 };
 

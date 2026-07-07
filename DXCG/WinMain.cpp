@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <crtdbg.h>
 #include "Renderer.h"
+#include "InputManager.h"
 
 // 주 창의 핸들  
 HWND ghMainWnd = 0;
@@ -104,12 +105,37 @@ WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_KEYDOWN:
-		if (wParam == VK_ESCAPE)
-			DestroyWindow(ghMainWnd);
+		InputManager::GetInstance()->SetKeyDown((int)wParam);
 		return 0;
+
+	case WM_KEYUP:
+		InputManager::GetInstance()->SetKeyUp((int)wParam);
+		return 0;
+	
+	case WM_MOUSEMOVE:
+		InputManager::GetInstance()->UpdateMousePos(LOWORD(lParam), HIWORD(lParam));
+		return 0;
+
+	case WM_LBUTTONDOWN:
+		InputManager::GetInstance()->SetLeftMouseDown(true);
+		return 0;
+
+	case WM_LBUTTONUP:
+		InputManager::GetInstance()->SetLeftMouseDown(false);
+		return 0;
+	
+	case WM_RBUTTONDOWN:
+		InputManager::GetInstance()->SetRightMouseDown(true);
+		return 0;
+
+	case WM_RBUTTONUP:
+		InputManager::GetInstance()->SetRightMouseDown(false);
+		return 0;
+
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
 	}
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
+

@@ -401,7 +401,7 @@ void Renderer::Update()
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
-    UpdateCamera();
+    // mMainCamera.Update();
 }
 
 void Renderer::UpdateObjectConstants()
@@ -483,14 +483,6 @@ void Renderer::UpdateMaterialBuffer()
 
             mat->NumFramesDirty--;
         }
-    }
-}
-
-void Renderer::UpdateCamera()
-{
-    if (mMainCamera.mViewDirty)
-    {
-        mMainCamera.UpdateViewMatrix();
     }
 }
 
@@ -578,3 +570,4 @@ int Renderer::Run()
 
     return (int)msg.wParam;
 }
+
