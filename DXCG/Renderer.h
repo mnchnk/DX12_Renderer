@@ -68,8 +68,7 @@ private:
 	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
-	//std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
-
+	std::unique_ptr<class TextureManager> mTextureManger;
 	//CB
 	PassConstants mPassCB;
 

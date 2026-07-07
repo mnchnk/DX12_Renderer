@@ -9,6 +9,7 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "Util.h"
+#include "TextureManager.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -18,8 +19,6 @@ using namespace DirectX;
 
 bool Renderer::Initialize()
 {
-
-
     mGraphicsDevice = std::make_unique<GraphicsDevice>();
     mCommandQueue = std::make_unique<CommandQueue>();
     mSwapChain = std::make_unique<SwapChain>();
@@ -311,7 +310,7 @@ void Renderer::InitializeRenderItem()
 
     boxRitem->ObjectCBIndex = 0;
     boxRitem->Geo = mGeometries["boxGeo"].get();
-    boxRitem->Mat = mMaterials["copper"].get();
+    boxRitem->Mat = mMaterials["plastic"].get();
 
     boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
@@ -327,7 +326,9 @@ void Renderer::InitializeRenderItem()
 
 void Renderer::LoadTextures()
 {
+    mTextureManger = std::make_unique<TextureManager>();
 
+    // mTextureManager->LoadTexture("wood", "Textures/WoodCrate01.dds", mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
 }
 
 std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> Renderer::GetStaticSamplers()
@@ -452,6 +453,9 @@ void Renderer::UpdatePassConstants()
     mPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
     mPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
     mPassCB.Lights[0].Strength = { 0.8f, 0.8f, 0.8f };
+
+    mPassCB.Lights[1].Position = { 0.0f, 0.0f, -10.0f };
+    mPassCB.Lights[1].Strength = { 0.8f, 0.8f, 0.8f };
 
     auto currPassCB = mCurrFrameResource->PassCB.get();
     currPassCB->CopyData(0, mPassCB);
