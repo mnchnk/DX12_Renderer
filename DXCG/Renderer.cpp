@@ -302,6 +302,7 @@ void Renderer::InitializeRenderItem()
 {
     auto boxRitem = std::make_unique<RenderItem>();
 
+    boxRitem->Name = "box";
     XMStoreFloat4x4(&boxRitem->World, XMMatrixIdentity());
 
     boxRitem->ObjectCBIndex = 0;
@@ -315,6 +316,9 @@ void Renderer::InitializeRenderItem()
     boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
     boxRitem->NumFramesDirty = 3;
+
+    boxRitem->Bounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
+    boxRitem->Bounds.Extents = XMFLOAT3(0.5f, 0.5f, 0.5f);
 
     mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
     mAllRenderItems.push_back(std::move(boxRitem));
@@ -544,6 +548,50 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
         cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
 
         cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
+    }
+}
+
+void Renderer::Pick(int sx, int sy)
+{
+    XMFLOAT4X4 P = mMainCamera.GetProj4x4();
+    float vx = (+2.0f * sx / mClientWidth - 1.0f) / P(0, 0);
+    float vy = (-2.0f * sy / mClientHeight + 1.0f) / P(1, 1);
+
+    XMVECTOR rayOrigin = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+    XMVECTOR rayDir = XMVectorSet(vx, vy, 1.0f, 0.0f);
+
+    XMMATRIX V = mMainCamera.GetView();
+    XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(V), V);
+
+    XMVECTOR rayOriginW = XMVector3TransformCoord(rayOrigin, invView);
+    XMVECTOR rayDirW = XMVector3TransformNormal(rayDir, invView);
+    rayDirW = XMVector3Normalize(rayDirW);
+
+    RenderItem* pickedItem = nullptr;
+    float tMin = 9999999.0f; 
+
+    for (auto& ri : mAllRenderItems)
+    {
+        XMMATRIX W = XMLoadFloat4x4(&ri->World);
+        DirectX::BoundingBox worldBounds;
+        ri->Bounds.Transform(worldBounds, W);
+
+        float t = 0.0f; 
+
+        if (worldBounds.Intersects(rayOriginW, rayDirW, t))
+        {
+            if (t < tMin)
+            {
+                tMin = t;
+                pickedItem = ri.get();
+            }
+        }
+    }
+
+    if (pickedItem != nullptr)
+    {
+        pickedItem->Mat = mMaterials["plastic"].get();
+        pickedItem->NumFramesDirty = MaxFrameResource;
     }
 }
 

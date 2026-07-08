@@ -14,6 +14,8 @@ int Run();
 LRESULT CALLBACK
 WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+std::unique_ptr<Renderer> theApp = nullptr;
+
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd)
 {
@@ -24,11 +26,12 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCm
 	if (!InitWindowsApp(hInstance, nShowCmd))
 		return 0;
 
-	Renderer theApp(ghMainWnd, 800, 600);
-	if (!theApp.Initialize())
+	theApp = std::make_unique<Renderer>(ghMainWnd, 800, 600);
+
+	if (!theApp->Initialize())
 		return 0;
 
-	return theApp.Run();
+	return theApp->Run();
 }
 
 bool InitWindowsApp(HINSTANCE instanceHandle, int show)
@@ -52,14 +55,19 @@ bool InitWindowsApp(HINSTANCE instanceHandle, int show)
 		return false;
 	}
 
+	RECT R = { 0, 0, 800, 600 };
+	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
+	int width = R.right - R.left;
+	int height = R.bottom - R.top;
+
 	ghMainWnd = CreateWindow(
 		L"BasicWndClass",
 		L"Win32Basic",
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
+		width,
+		height,
 		0,
 		0,
 		instanceHandle,
@@ -118,6 +126,8 @@ WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	case WM_LBUTTONDOWN:
 		InputManager::GetInstance()->SetLeftMouseDown(true);
+		if(theApp != nullptr)
+			theApp->Pick(LOWORD(lParam), HIWORD(lParam));
 		return 0;
 
 	case WM_LBUTTONUP:

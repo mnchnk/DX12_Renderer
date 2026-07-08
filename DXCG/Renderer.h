@@ -11,6 +11,7 @@
 #include "GameTimer.h"
 #include "TextureManager.h"
 #include <array>
+#include <DirectXCollision.h>
 
 enum class RenderItemType
 {
@@ -22,6 +23,8 @@ struct RenderItem
 {
 	RenderItem() = default;
 	RenderItem(const RenderItem& rhs) = delete;
+
+	std::string Name;
 
 	DirectX::XMFLOAT4X4 World;
 	DirectX::XMFLOAT4X4 TexTransform;
@@ -37,6 +40,8 @@ struct RenderItem
 	UINT IndexCount = 0;
 	UINT StartIndexLocation = 0;
 	int BaseVertexLocation = 0;
+
+	DirectX::BoundingBox Bounds;
 };
 
 class Renderer
@@ -109,6 +114,9 @@ public:
 	//Draw
 	void Draw();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+	
+	//Picking
+	void Pick(int sx, int sy);
 
 	//Run
 	int Run();
