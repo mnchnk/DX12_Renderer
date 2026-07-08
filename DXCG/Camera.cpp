@@ -6,22 +6,30 @@ void Camera::SetLens(float foV, float aspect, float nearZ, float farZ)
 	mAspect = aspect;
 	mNearZ = nearZ;
 	mFarZ = farZ;
+	
+	UpdateViewMatrix();
+	UpdateProjMatrix();
 }
 
 void Camera::Update(float dt)
 {
+
 	if (InputManager::GetInstance()->IsKeyDown('W'))
-		Walk(10.0f * dt);
+		Walk(mSpeed* dt);
 	if (InputManager::GetInstance()->IsKeyDown('S'))
-		Walk(-10.0f * dt);
+		Walk(-mSpeed * dt);
 	if (InputManager::GetInstance()->IsKeyDown('A'))
-		Strafe(-10.0f * dt);
+		Strafe(-mSpeed * dt);
 	if (InputManager::GetInstance()->IsKeyDown('D'))
-		Strafe(10.0f * dt);
+		Strafe(mSpeed * dt);
 
 	if (InputManager::GetInstance()->IsLeftMouseDown())
 	{
-		// 변화량 계산 후 회전
+		float dx = (float)InputManager::GetInstance()->GetMouseDeltaX();
+		float dy = (float)InputManager::GetInstance()->GetMouseDeltaY();
+		
+		Pitch(dy * 0.005f);
+		RotateY(dx * 0.005f);
 	}
 
 	if (mViewDirty)

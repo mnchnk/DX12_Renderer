@@ -9,7 +9,6 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "Util.h"
-#include "TextureManager.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -55,9 +54,6 @@ bool Renderer::Initialize()
     mMainCamera.SetPosition(0.0f, 0.0f, -5.0f);
 
     mMainCamera.SetLens(0.25f * XM_PI, static_cast<float>(mClientWidth) / mClientHeight, 1.0f, 1000.0f);
-    mMainCamera.UpdateProjMatrix();
-
-    mMainCamera.mViewDirty = true;
 
     ID3D12GraphicsCommandList* cmdList = mCommandQueue->GetCommandList();
     ThrowIfFailed(cmdList->Close());
@@ -310,7 +306,7 @@ void Renderer::InitializeRenderItem()
 
     boxRitem->ObjectCBIndex = 0;
     boxRitem->Geo = mGeometries["boxGeo"].get();
-    boxRitem->Mat = mMaterials["plastic"].get();
+    boxRitem->Mat = mMaterials["copper"].get();
 
     boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
@@ -385,7 +381,7 @@ std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> Renderer::GetStaticSamplers()
         anisotropicWrap, anisotropicClamp };
 }
 
-void Renderer::Update()
+void Renderer::Update(float dt)
 {
     mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % 3;
     mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
@@ -401,7 +397,8 @@ void Renderer::Update()
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
-    // mMainCamera.Update();
+    mMainCamera.Update(dt);
+    InputManager::GetInstance()->ClearDeltas();
 }
 
 void Renderer::UpdateObjectConstants()
@@ -554,6 +551,8 @@ int Renderer::Run()
 {
     MSG msg = { 0 };
 
+    mTimer.Reset();
+
     while (msg.message != WM_QUIT)
     {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
@@ -563,7 +562,8 @@ int Renderer::Run()
         }
         else
         {
-            Update();
+            mTimer.Tick();
+            Update(mTimer.DeltaTime());
             Draw();
         }
     }

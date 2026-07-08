@@ -1,8 +1,12 @@
 C:\Users\1113a\source\repos\DXCG\DXCG\Camera.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Camera.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\CommandQueue.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\CommandQueue.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\DDSTextureLoader.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\DDSTextureLoader.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\FrameResource.h;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\FrameResource.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\GameTimer.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\GameTimer.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\GraphicsDevice.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\GraphicsDevice.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\InputManager.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\InputManager.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Renderer.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Renderer.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\SwapChain.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\SwapChain.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\TextureManager.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\TextureManager.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Util.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Util.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\WinMain.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\WinMain.obj

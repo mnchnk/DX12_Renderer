@@ -8,6 +8,8 @@
 #include "SwapChain.h"
 #include "FrameResource.h"
 #include "Camera.h"
+#include "GameTimer.h"
+#include "TextureManager.h"
 #include <array>
 
 enum class RenderItemType
@@ -58,6 +60,8 @@ private:
 
 	HWND mHWnd;
 
+	GameTimer mTimer;
+
 	//FrameResource
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	UINT8 mCurrFrameResourceIndex;
@@ -68,7 +72,7 @@ private:
 	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
-	std::unique_ptr<class TextureManager> mTextureManger;
+	std::unique_ptr<TextureManager> mTextureManger;
 	
 	//CB
 	PassConstants mPassCB;
@@ -97,7 +101,7 @@ public:
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
 	//Update
-	void Update();
+	void Update(float dt);
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
 	void UpdateMaterialBuffer();

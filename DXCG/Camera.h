@@ -48,10 +48,11 @@ private:
 	float mNearZ;
 	float mFarZ;
 	float mAspect;
+	float mSpeed = 10.0f;
 
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
 
-	bool mViewDirty = false;
+	bool mViewDirty = true;
 };
 
