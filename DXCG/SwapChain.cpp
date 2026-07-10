@@ -2,6 +2,7 @@
 #include "GraphicsDevice.h"
 #include "CommandQueue.h"
 #include "Util.h"
+#include "ShadowMap.h"
 
 
 bool SwapChain::Initialize(GraphicsDevice* device, CommandQueue* commandQueue, HWND hWnd, UINT width, UINT height)
@@ -108,6 +109,7 @@ void SwapChain::Present()
 	ThrowIfFailed(mSwapChain->Present(0, 0));
 	mCurrentBackBufferIndex = mSwapChain->GetCurrentBackBufferIndex();
 }
+
 
 void SwapChain::OnResize(UINT newWidth, UINT newHeight)
 {

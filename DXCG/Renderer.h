@@ -10,6 +10,7 @@
 #include "Camera.h"
 #include "GameTimer.h"
 #include "TextureManager.h"
+#include "ShadowMap.h"
 #include <array>
 #include <DirectXCollision.h>
 
@@ -54,7 +55,7 @@ private:
 
 	ComPtr<ID3D12RootSignature> mRootSignature;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;	
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+	std::unordered_map<std::string, std::vector<D3D12_INPUT_ELEMENT_DESC>> mInputLayouts;
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 	
 	D3D12_VIEWPORT mScreenViewport;
@@ -84,9 +85,11 @@ private:
 
 	//Camera
 	Camera mMainCamera;
-
-	//Move
-
+	
+	//Light, Shadow
+	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
+	std::unordered_map<std::string, std::vector<std::unique_ptr<Light>>> mAllLights;
+	Light* mMainLight = nullptr;
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
@@ -102,6 +105,7 @@ public:
 	void InitializeShapesGeometry();
 	void InitializeMaterials();
 	void InitializeRenderItem();
+	void InitializeLights();
 	void LoadTextures();
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 

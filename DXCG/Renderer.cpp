@@ -125,19 +125,27 @@ bool Renderer::InitializeShadersAndInputLayout()
     mShaders["standardVS"] = CompileShader(L"Default.hlsl", nullptr, "VS", "vs_5_1");
     mShaders["PBRPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
 
-    mInputLayout =
+    mInputLayouts["default"] =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
+
+    mShaders["shadowVS"] = CompileShader(L"ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
+
+    mInputLayouts["shadow"] =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+    };
+
     return true;
 }
 
 bool Renderer::InitializePSOs()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+    psoDesc.InputLayout = { mInputLayouts["default"].data(), (UINT)mInputLayouts["default"].size()};
     psoDesc.pRootSignature = mRootSignature.Get();
     psoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["standardVS"]->GetBufferPointer()), mShaders["standardVS"]->GetBufferSize() };
     psoDesc.PS = { reinterpret_cast<BYTE*>(mShaders["PBRPS"]->GetBufferPointer()), mShaders["PBRPS"]->GetBufferSize() };
@@ -154,6 +162,27 @@ bool Renderer::InitializePSOs()
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = {};
+    shadowPsoDesc.InputLayout = { mInputLayouts["shadow"].data(), (UINT)mInputLayouts["shadow"].size()};
+    shadowPsoDesc.pRootSignature = mRootSignature.Get();
+
+    shadowPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["ShadowVS"]->GetBufferPointer()), mShaders["ShadowVS"]->GetBufferSize() };
+    shadowPsoDesc.PS = { nullptr, 0 };
+    shadowPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    shadowPsoDesc.RasterizerState.DepthBias = 100000;
+    shadowPsoDesc.RasterizerState.DepthBiasClamp = 0.0f;
+    shadowPsoDesc.RasterizerState.SlopeScaledDepthBias = 1.0f;
+    shadowPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    shadowPsoDesc.SampleMask = UINT_MAX;
+    shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    //컬러를 쓰지 않으므로 렌더 타겟 개수는 0개, 포맷은 UNKNOWN
+    shadowPsoDesc.NumRenderTargets = 0;
+    shadowPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+    shadowPsoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    shadowPsoDesc.SampleDesc.Count = 1;
+
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
     return true;
 }
 
@@ -324,6 +353,21 @@ void Renderer::InitializeRenderItem()
     mAllRenderItems.push_back(std::move(boxRitem));
 }
 
+void Renderer::InitializeLights()
+{
+    auto mainDirectionalLight = std::make_unique<Light>();
+    mainDirectionalLight->Direction = { 0.57735f, -0.57735f, 0.57735f };
+    mainDirectionalLight->Strength = { 0.8f, 0.8f, 0.8f };
+    mMainLight = mainDirectionalLight.get();
+
+    auto pointLight1 = std::make_unique<Light>();
+    pointLight1->Position = { 0.0f, 0.0f, -10.0f };
+    pointLight1->Strength = { 0.8f, 0.8f, 0.8f };
+
+    mAllLights["Directional"].push_back(std::move(mainDirectionalLight));
+    mAllLights["Point"].push_back(std::move(pointLight1));
+}
+
 void Renderer::LoadTextures()
 {
     mTextureManger = std::make_unique<TextureManager>();
@@ -452,11 +496,28 @@ void Renderer::UpdatePassConstants()
     mPassCB.FarZ = 1000.0f;
 
     mPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-    mPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
-    mPassCB.Lights[0].Strength = { 0.8f, 0.8f, 0.8f };
+    int idx = 0;
+    for (auto& e : mAllLights)
+    {
+        for (auto& light : e.second)
+        {
+            mPassCB.Lights[idx++] = *light.get();
+        }
+    }
 
-    mPassCB.Lights[1].Position = { 0.0f, 0.0f, -10.0f };
-    mPassCB.Lights[1].Strength = { 0.8f, 0.8f, 0.8f };
+    float sceneRadius = 10.0f;
+
+    XMVECTOR lightDir = XMLoadFloat3(&mMainLight->Direction);
+    XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // 씬의 반지름을 고려해 멀리 배치
+    XMVECTOR targetPos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+    XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+    XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, up);
+    XMStoreFloat4x4(&mPassCB.LightView, lightView);
+    XMMATRIX lightProj = XMMatrixOrthographicLH(20.0f, 20.0f, 1.0f, 40.0f);
+    XMStoreFloat4x4(&mPassCB.LightProj, lightProj);
+    XMMATRIX lightViewProj = lightView * lightProj;
+    XMStoreFloat4x4(&mPassCB.LightViewProj, lightViewProj);
 
     auto currPassCB = mCurrFrameResource->PassCB.get();
     currPassCB->CopyData(0, mPassCB);
@@ -493,6 +554,31 @@ void Renderer::Draw()
     auto commandList = mCommandQueue->GetCommandList();
 
     ThrowIfFailed(cmdAllocator->Reset());
+
+    commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        mShadowMap->GetResource(),
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE));
+
+    // 1-2. 뷰포트 및 시저 랙을 그림자 해상도에 맞춤
+    commandList->RSSetViewports(1, &mShadowMap->GetViewport());
+    commandList->RSSetScissorRects(1, &mShadowMap->GetScissorRect());
+
+    // 1-3. 기존 화면 렌더 타겟을 해제하고, 그림자 전용 DSV만 바인딩!
+    commandList->ClearDepthStencilView(mShadowMap->Dsv(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+    commandList->OMSetRenderTargets(0, nullptr, false, &mShadowMap->Dsv());
+
+    // 1-4. 그림자 전용 PSO 장착 후 오브젝트들 드로우 호출
+    commandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
+    for(auto& e: mRenderItemsByType)
+        DrawRenderItems(commandList, e.second); // (여기서는 빛 시점의 PassConstants 버퍼를 타게 설정해야 함)
+
+    // 1-5. 패스가 끝났으므로 깊이 쓰기 상태를 다시 '셰이더 리소스(읽기)' 상태로 복구
+    commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        mShadowMap->GetResource(),
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        D3D12_RESOURCE_STATE_GENERIC_READ));
+
     ThrowIfFailed(commandList->Reset(cmdAllocator, mPSOs["opaque"].Get()));
     commandList->RSSetViewports(1, &mScreenViewport);
     commandList->RSSetScissorRects(1, &mScissorRect);

@@ -131,6 +131,7 @@
     <ClCompile Include="GraphicsDevice.cpp" />
     <ClCompile Include="InputManager.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Util.cpp" />
@@ -144,6 +145,7 @@
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Util.h" />
@@ -153,6 +155,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="LightingUtils.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="ShadowVS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
