@@ -10,6 +10,7 @@ SamplerState gsamLinearWrap : register(s2);
 SamplerState gsamLinearClamp : register(s3);
 SamplerState gsamAnisotropicWrap : register(s4);
 SamplerState gsamAnisotropicClamp : register(s5);
+SamplerComparisonState gsamShadow : register(s6);
 
 cbuffer cbPerObject : register(b0)
 {
@@ -63,6 +64,7 @@ struct MaterialData
 };
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
+Texture2D gShadowMap : register(t1);
 
 struct VertexIn
 {
@@ -77,7 +79,27 @@ struct VertexOut
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
+    float4 ShadowPosH : POSITION1;
 };
+
+float CalcShadowFactor(float4 shadowPosH)
+{
+    shadowPosH.xyz /= shadowPosH.w;
+    
+    float currentDepth = shadowPosH.z;
+    
+    float2 shadowUV = shadowPosH.xy * float2(0.5f, -0.5f) + 0.5f;
+    
+    if (shadowUV.x < 0.0f || shadowUV.x > 1.0f ||
+        shadowUV.y < 0.0f || shadowUV.y > 1.0f ||
+        currentDepth > 1.0f)
+    {
+        return 1.0f;
+    }
+    
+    return gShadowMap.SampleCmpLevelZero(gsamShadow, shadowUV, currentDepth).r;
+}
+
 
 VertexOut VS(VertexIn vin)
 {
@@ -88,12 +110,14 @@ VertexOut VS(VertexIn vin)
     
     vout.NormalW = mul(vin.NormalL, (float3x3)gWorld);
     vout.PosH = mul(posW, gViewProj);
- 
+    
+    vout.ShadowPosH = mul(posW, gLightViewProj);
     return vout;
 }
 
 float4 PS(VertexOut pin) : SV_Target
 {
+    
     float3 N = normalize(pin.NormalW);
     float3 V = normalize(gEyePosW - pin.PosW);
 
@@ -104,10 +128,16 @@ float4 PS(VertexOut pin) : SV_Target
     mat.FresnelR0 = matData.FresnelR0;
     mat.Roughness = matData.Roughness;
 
+    float shadowFactor = CalcShadowFactor(pin.ShadowPosH);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
     int i = 0;
 
+    for (i = 0; i < NUM_DIR_LIGHTS; ++i)
+    {
+        finalColor += shadowFactor * ComputeDirectionalLight(gLights[i], mat, N, V);
+    }
+    
     // 1. 방향광 누적 계산
     for (i = 0; i < NUM_DIR_LIGHTS; ++i)
     {

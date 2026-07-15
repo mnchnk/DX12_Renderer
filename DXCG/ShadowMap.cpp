@@ -34,8 +34,7 @@ ShadowMap::ShadowMap(ID3D12Device* device, UINT width, UINT height)
         IID_PPV_ARGS(&mShadowMap));
 }
 
-
-void ShadowMap::BuildDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE hCpuSrv, D3D12_GPU_DESCRIPTOR_HANDLE hGpuSrv, D3D12_CPU_DESCRIPTOR_HANDLE hCpuDsv)
+void ShadowMap::BuildDescriptor(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE hCpuSrv, D3D12_GPU_DESCRIPTOR_HANDLE hGpuSrv, D3D12_CPU_DESCRIPTOR_HANDLE hCpuDsv)
 {
     mCpuSrv = hCpuSrv;
     mGpuSrv = hGpuSrv;
@@ -47,10 +46,12 @@ void ShadowMap::BuildDescriptor(D3D12_CPU_DESCRIPTOR_HANDLE hCpuSrv, D3D12_GPU_D
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
+    device->CreateShaderResourceView(mShadowMap.Get(), &srvDesc, mCpuSrv);
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     dsvDesc.Texture2D.MipSlice = 0;
+    device->CreateDepthStencilView(mShadowMap.Get(), &dsvDesc, mCpuDsv);
 }

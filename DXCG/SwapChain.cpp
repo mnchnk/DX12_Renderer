@@ -110,7 +110,6 @@ void SwapChain::Present()
 	mCurrentBackBufferIndex = mSwapChain->GetCurrentBackBufferIndex();
 }
 
-
 void SwapChain::OnResize(UINT newWidth, UINT newHeight)
 {
 }

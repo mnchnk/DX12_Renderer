@@ -14,6 +14,7 @@ public:
 	ID3D12Resource* GetResource() const { return mShadowMap.Get(); }
 
 	void BuildDescriptor(
+		ID3D12Device* device,
 		D3D12_CPU_DESCRIPTOR_HANDLE hCpuSrv,
 		D3D12_GPU_DESCRIPTOR_HANDLE hGpuSrv,
 		D3D12_CPU_DESCRIPTOR_HANDLE hCpuDsv

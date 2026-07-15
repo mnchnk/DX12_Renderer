@@ -90,6 +90,10 @@ private:
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
 	std::unordered_map<std::string, std::vector<std::unique_ptr<Light>>> mAllLights;
 	Light* mMainLight = nullptr;
+
+	ComPtr<ID3D12DescriptorHeap> mShadowSrvHeap;
+	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
+
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;
@@ -107,7 +111,7 @@ public:
 	void InitializeRenderItem();
 	void InitializeLights();
 	void LoadTextures();
-	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
 
 	//Update
 	void Update(float dt);
