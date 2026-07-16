@@ -58,13 +58,14 @@ struct MaterialData
     float Roughness;
     float4x4 MatTransform;
     uint DiffuseMapIndex;
-    uint MatPad0;
+    uint NormalMapIndex;
     uint MatPad1;
     uint MatPad2;
 };
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
 Texture2D gShadowMap : register(t1);
+Texture2D gTextures[] : register(t2);
 
 struct VertexIn
 {
@@ -128,6 +129,9 @@ float4 PS(VertexOut pin) : SV_Target
     mat.FresnelR0 = matData.FresnelR0;
     mat.Roughness = matData.Roughness;
 
+    float4 diffuse = gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)].Sample(gsamLinearWrap, pin.TexC);
+    float3 normal = gTextures[NonUniformResourceIndex(matData.NormalMapIndex)].Sample(gsamLinearWrap, pin.TexC).rgb;
+    
     float shadowFactor = CalcShadowFactor(pin.ShadowPosH);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 

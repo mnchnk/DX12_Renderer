@@ -39,7 +39,10 @@ bool Renderer::Initialize()
     mScissorRect.bottom = mClientHeight;
     
     ThrowIfFailed(mCommandQueue->GetCommandList()->Reset(mCommandQueue->GetCommandAllocator(), nullptr));
+    
     mShadowMap = std::make_unique<ShadowMap>(mGraphicsDevice->GetDevice(), mClientWidth, mClientHeight);
+    
+    LoadTextures();
 
     if (!(
         InitializeRootSignature() &&
@@ -82,23 +85,23 @@ bool Renderer::InitializeFrameResource()
 
 bool Renderer::InitializeRootSignature()
 {
-    //CD3DX12_DESCRIPTOR_RANGE texTable;
-    //texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 0, 0); // 2번째 파라미터는 텍스처 개수
+    CD3DX12_DESCRIPTOR_RANGE texTable;
+    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, 2, 0); // 2번째 파라미터는 텍스처 개수
 
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 
-    CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 
     slotRootParameter[0].InitAsConstantBufferView(0);
     slotRootParameter[1].InitAsConstantBufferView(1);
     slotRootParameter[2].InitAsShaderResourceView(0, 0);
     slotRootParameter[3].InitAsDescriptorTable(1, &shadowTable);
-    //slotRootParameter[3].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+    slotRootParameter[4].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
     auto staticSamplers = GetStaticSamplers();
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter,
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter,
         (UINT)staticSamplers.size(), staticSamplers.data(),
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -113,7 +116,7 @@ bool Renderer::InitializeRootSignature()
     }
     ThrowIfFailed(hr);
 
-    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateRootSignature(
+      ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateRootSignature(
         0,
         serializedRootSig->GetBufferPointer(),
         serializedRootSig->GetBufferSize(),
@@ -123,6 +126,8 @@ bool Renderer::InitializeRootSignature()
 
 bool Renderer::InitializeDescriptorHeaps()
 {
+    //shadow
+
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
     srvHeapDesc.NumDescriptors = 1;
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -138,7 +143,12 @@ bool Renderer::InitializeDescriptorHeaps()
         mShadowSrvHeap->GetCPUDescriptorHandleForHeapStart(),
         mShadowSrvHeap->GetGPUDescriptorHandleForHeapStart(),
         mShadowDsvHeap->GetCPUDescriptorHandleForHeapStart());
+    
+    //texture
+    
+    mTextureManger->InitializeDescriptor(mGraphicsDevice->GetDevice());
     return true;
+
 }
 
 bool Renderer::InitializeShadersAndInputLayout()
@@ -635,7 +645,7 @@ void Renderer::UpdateMaterialBuffer()
             matData.FresnelR0 = mat->FresnelR0;
             matData.Roughness = mat->Roughness;
             matData.DiffuseMapIndex = mat->DiffuseSrvHeapIndex;
-            
+            matData.NormalMapIndex = mat->NormalSrvHeapIndex;
             XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
             XMStoreFloat4x4(&matData.MatTransform, XMMatrixTranspose(matTransform));
 

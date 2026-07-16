@@ -1,2 +1,6 @@
-﻿  Renderer.cpp
+﻿  FrameResource.h
+  Renderer.cpp
+  TextureManager.cpp
+  WinMain.cpp
+  코드를 생성하고 있습니다...
   DXCG.vcxproj -> C:\Users\1113a\source\repos\DXCG\x64\Debug\DXCG.exe

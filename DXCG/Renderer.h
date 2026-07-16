@@ -68,6 +68,8 @@ private:
 
 	GameTimer mTimer;
 
+	UINT mSrvDescSize = -1;
+
 	//FrameResource
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	UINT8 mCurrFrameResourceIndex;
