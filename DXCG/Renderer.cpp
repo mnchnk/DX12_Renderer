@@ -153,8 +153,8 @@ bool Renderer::InitializeDescriptorHeaps()
 
 bool Renderer::InitializeShadersAndInputLayout()
 {
-    mShaders["standardVS"] = CompileShader(L"Default.hlsl", nullptr, "VS", "vs_5_1");
-    mShaders["PBRPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
+    mShaders["standardVS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["PBRPS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayouts["default"] =
     {
@@ -163,7 +163,7 @@ bool Renderer::InitializeShadersAndInputLayout()
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
-    mShaders["shadowVS"] = CompileShader(L"ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["shadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
 
     mInputLayouts["shadow"] =
     {
