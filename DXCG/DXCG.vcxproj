@@ -127,13 +127,16 @@
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="FrameResource.h" />
+    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GameTimer.cpp" />
     <ClCompile Include="GraphicsDevice.cpp" />
     <ClCompile Include="InputManager.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Scene.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="SwapChain.cpp" />
     <ClCompile Include="TextureManager.cpp" />
+    <ClCompile Include="Transform.cpp" />
     <ClCompile Include="Util.cpp" />
     <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
@@ -141,13 +144,16 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CommandQueue.h" />
     <ClInclude Include="DDSTextureLoader.h" />
+    <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameTimer.h" />
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Scene.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="SwapChain.h" />
     <ClInclude Include="TextureManager.h" />
+    <ClInclude Include="Transform.h" />
     <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>

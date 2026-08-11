@@ -11,39 +11,9 @@
 #include "GameTimer.h"
 #include "TextureManager.h"
 #include "ShadowMap.h"
+#include "Scene.h"
 #include <array>
 #include <DirectXCollision.h>
-
-enum class RenderItemType
-{
-	Opaque = 0
-
-};
-
-struct RenderItem
-{
-	RenderItem() = default;
-	RenderItem(const RenderItem& rhs) = delete;
-
-	std::string Name;
-
-	DirectX::XMFLOAT4X4 World;
-	DirectX::XMFLOAT4X4 TexTransform;
-
-	UINT ObjectCBIndex = -1;
-	UINT8 NumFramesDirty = MaxFrameResource;
-
-	Material* Mat = nullptr;
-	MeshGeometry* Geo = nullptr;
-
-	D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-	UINT IndexCount = 0;
-	UINT StartIndexLocation = 0;
-	int BaseVertexLocation = 0;
-
-	DirectX::BoundingBox Bounds;
-};
 
 class Renderer
 {
@@ -77,7 +47,6 @@ private:
 
 	//RenderItem
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
-	std::vector<std::unique_ptr<RenderItem>> mAllRenderItems;
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unique_ptr<TextureManager> mTextureManger;
@@ -90,11 +59,13 @@ private:
 	
 	//Light, Shadow
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
-	std::unordered_map<std::string, std::vector<std::unique_ptr<Light>>> mAllLights;
 	Light* mMainLight = nullptr;
 
 	ComPtr<ID3D12DescriptorHeap> mShadowSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
+
+	//Scene
+	std::unique_ptr<Scene> mScene;
 
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
@@ -117,6 +88,8 @@ public:
 
 	//Update
 	void Update(float dt);
+	void SyncTransforms();
+	void SyncLights();
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
 	void UpdateMaterialBuffer();

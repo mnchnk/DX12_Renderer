@@ -9,6 +9,7 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "Util.h"
+#include "GameObject.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -41,7 +42,7 @@ bool Renderer::Initialize()
     ThrowIfFailed(mCommandQueue->GetCommandList()->Reset(mCommandQueue->GetCommandAllocator(), nullptr));
     
     mShadowMap = std::make_unique<ShadowMap>(mGraphicsDevice->GetDevice(), mClientWidth, mClientHeight);
-    
+    mScene = std::make_unique<Scene>();
     LoadTextures();
 
     if (!(
@@ -75,7 +76,7 @@ bool Renderer::InitializeFrameResource()
 
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mAllRenderItems.size(), (UINT)mMaterials.size()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mMaterials.size()));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -425,9 +426,6 @@ void Renderer::InitializeRenderItem()
     boxRitem->Bounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
     boxRitem->Bounds.Extents = XMFLOAT3(0.5f, 0.5f, 0.5f);
 
-    mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
-    mAllRenderItems.push_back(std::move(boxRitem));
-
     auto groundRitem = std::make_unique<RenderItem>();
 
     groundRitem->Name = "ground";
@@ -448,8 +446,18 @@ void Renderer::InitializeRenderItem()
     groundRitem->Bounds.Center = XMFLOAT3(0.0f, -1.0f, 0.0f);
     groundRitem->Bounds.Extents = XMFLOAT3(10.0f, 0.01f, 10.0f);
 
+
+    mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
+    GameObject* go = mScene->CreateGameObject(boxRitem->Name);
+    go->Render = boxRitem.get();
+    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+    mScene->CreateRenderItem(boxRitem);
+
     mRenderItemsByType[RenderItemType::Opaque].push_back(groundRitem.get());
-    mAllRenderItems.push_back(std::move(groundRitem));
+    go = mScene->CreateGameObject(groundRitem->Name);
+    go->Render = groundRitem.get();
+    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+    mScene->CreateRenderItem(groundRitem);
 }
 
 void Renderer::InitializeLights()
@@ -463,8 +471,14 @@ void Renderer::InitializeLights()
     pointLight1->Position = { 0.0f, 0.0f, -10.0f };
     pointLight1->Strength = { 0.8f, 0.8f, 0.8f };
 
-    mAllLights["Directional"].push_back(std::move(mainDirectionalLight));
-    mAllLights["Point"].push_back(std::move(pointLight1));
+    GameObject* go = mScene->CreateGameObject("mainDirectionalLight");
+    go->LightData = mainDirectionalLight.get();
+    mScene->CreateLight("Directional", mainDirectionalLight);
+    
+    go = mScene->CreateGameObject("pointLight1");
+    go->LightData = pointLight1.get();
+    go->GetTransform().SetPosition(pointLight1->Position);
+    mScene->CreateLight("Point", pointLight1);
 }
 
 void Renderer::LoadTextures()
@@ -550,6 +564,8 @@ void Renderer::Update(float dt)
         CloseHandle(eventHandle);
     }
 
+    SyncTransforms();
+    SyncLights();
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
@@ -557,11 +573,38 @@ void Renderer::Update(float dt)
     InputManager::GetInstance()->ClearDeltas();
 }
 
+void Renderer::SyncTransforms()
+{
+    for (auto& go : mScene->GetGameObjects())
+    {
+        if (go->Render)
+            XMStoreFloat4x4(&go->Render->World, go->GetTransform().GetWorldMatrix());
+    }
+}
+
+void Renderer::SyncLights()
+{
+    for (auto& go : mScene->GetGameObjects())
+    {
+        if (!go->LightData) continue;
+
+        XMMATRIX world = go->GetTransform().GetWorldMatrix();
+
+        // 위치가 필요한 라이트 (Point, Spot)
+        XMStoreFloat3(&go->LightData->Position, world.r[3]); // world 행렬의 4번째 행(translation)
+
+        // 방향이 필요한 라이트 (Directional, Spot) - 로컬 forward(0,0,1)를 회전만 적용해서 변환
+        XMVECTOR baseForward = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+        XMVECTOR worldDir = XMVector3TransformNormal(baseForward, world); // TransformNormal이라 위치는 무시하고 회전만 적용됨
+        XMStoreFloat3(&go->LightData->Direction, XMVector3Normalize(worldDir));
+    }
+}
+
 void Renderer::UpdateObjectConstants()
 {
     auto currObjectCB = mCurrFrameResource->ObjectCB.get();
 
-    for (auto& e : mAllRenderItems)
+    for (auto& e : mScene->GetAllRenderItems())
     {
         if (e->NumFramesDirty > 0)
         {
@@ -605,7 +648,7 @@ void Renderer::UpdatePassConstants()
 
     mPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
     int idx = 0;
-    for (auto& e : mAllLights)
+    for (auto& e : mScene->GetAllLights())
     {
         for (auto& light : e.second)
         {
@@ -769,7 +812,7 @@ void Renderer::Pick(int sx, int sy)
     RenderItem* pickedItem = nullptr;
     float tMin = 9999999.0f; 
 
-    for (auto& ri : mAllRenderItems)
+    for (auto& ri : mScene->GetAllRenderItems())
     {
         XMMATRIX W = XMLoadFloat4x4(&ri->World);
         DirectX::BoundingBox worldBounds;
