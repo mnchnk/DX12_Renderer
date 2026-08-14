@@ -1,6 +1,10 @@
 ﻿  FrameResource.h
+C:\Users\1113a\source\repos\DXCG\DXCG\FrameResource.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
   Renderer.cpp
-  TextureManager.cpp
-  WinMain.cpp
+C:\Users\1113a\source\repos\DXCG\DXCG\Renderer.cpp(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+C:\Users\1113a\source\repos\DXCG\DXCG\FrameResource.h(1,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+  (소스 파일 'Renderer.cpp'을(를) 컴파일하는 중)
+  
+C:\Users\1113a\source\repos\DXCG\DXCG\Renderer.cpp(676,1): warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
   코드를 생성하고 있습니다...
   DXCG.vcxproj -> C:\Users\1113a\source\repos\DXCG\x64\Debug\DXCG.exe

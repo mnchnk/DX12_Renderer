@@ -9,6 +9,7 @@
 #include "CommandQueue.h"
 #include "SwapChain.h"
 #include "Util.h"
+#include "GameObject.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -41,7 +42,7 @@ bool Renderer::Initialize()
     ThrowIfFailed(mCommandQueue->GetCommandList()->Reset(mCommandQueue->GetCommandAllocator(), nullptr));
     
     mShadowMap = std::make_unique<ShadowMap>(mGraphicsDevice->GetDevice(), mClientWidth, mClientHeight);
-    
+    mScene = std::make_unique<Scene>();
     LoadTextures();
 
     if (!(
@@ -75,7 +76,7 @@ bool Renderer::InitializeFrameResource()
 
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mAllRenderItems.size(), (UINT)mMaterials.size()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mMaterials.size()));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -86,7 +87,7 @@ bool Renderer::InitializeFrameResource()
 bool Renderer::InitializeRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE texTable;
-    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, 2, 0); // 2¹øÂ° ÆÄ¶ó¹ÌÅÍ´Â ÅØ½ºÃ³ °³¼ö
+    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, 2, 0); // 2ï¿½ï¿½Â° ï¿½Ä¶ï¿½ï¿½ï¿½Í´ï¿½ ï¿½Ø½ï¿½Ã³ ï¿½ï¿½ï¿½ï¿½
 
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
@@ -153,8 +154,8 @@ bool Renderer::InitializeDescriptorHeaps()
 
 bool Renderer::InitializeShadersAndInputLayout()
 {
-    mShaders["standardVS"] = CompileShader(L"Default.hlsl", nullptr, "VS", "vs_5_1");
-    mShaders["PBRPS"] = CompileShader(L"Default.hlsl", nullptr, "PS", "ps_5_1");
+    mShaders["standardVS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["PBRPS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayouts["default"] =
     {
@@ -163,7 +164,7 @@ bool Renderer::InitializeShadersAndInputLayout()
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
-    mShaders["shadowVS"] = CompileShader(L"ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["shadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
 
     mInputLayouts["shadow"] =
     {
@@ -207,7 +208,7 @@ bool Renderer::InitializePSOs()
     shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     shadowPsoDesc.SampleMask = UINT_MAX;
     shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    //ÄÃ·¯¸¦ ¾²Áö ¾ÊÀ¸¹Ç·Î ·»´õ Å¸°Ù °³¼ö´Â 0°³, Æ÷¸ËÀº UNKNOWN
+    //ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ UNKNOWN
     shadowPsoDesc.NumRenderTargets = 0;
     shadowPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
     shadowPsoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -219,41 +220,41 @@ bool Renderer::InitializePSOs()
 
 void Renderer::InitializeShapesGeometry()
 {
-    // 1. 24°³ÀÇ Á¤Á¡ ¹è¿­ »ý¼º (À§Ä¡, ¹ý¼±, UV)
-    // °¢ ¸é¸¶´Ù 4°³ÀÇ Á¤Á¡À» °¡Áý´Ï´Ù. (Front, Back, Top, Bottom, Left, Right)
+    // 1. 24ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½è¿­ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½Ä¡, ï¿½ï¿½ï¿½ï¿½, UV)
+    // ï¿½ï¿½ ï¿½é¸¶ï¿½ï¿½ 4ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½. (Front, Back, Top, Bottom, Left, Right)
     std::array<Vertex, 24> vertices =
     {
-        // ¾Õ¸é (Front) - ¹ý¼± Z´Â -1
+        // ï¿½Õ¸ï¿½ (Front) - ï¿½ï¿½ï¿½ï¿½ Zï¿½ï¿½ -1
         Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) }),
         Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) }),
 
-        // µÞ¸é (Back) - ¹ý¼± Z´Â +1
+        // ï¿½Þ¸ï¿½ (Back) - ï¿½ï¿½ï¿½ï¿½ Zï¿½ï¿½ +1
         Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) }),
         Vertex({ XMFLOAT3(+0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) }),
 
-        // À­¸é (Top) - ¹ý¼± Y´Â +1
+        // ï¿½ï¿½ï¿½ï¿½ (Top) - ï¿½ï¿½ï¿½ï¿½ Yï¿½ï¿½ +1
         Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
 
-        // ¾Æ·§¸é (Bottom) - ¹ý¼± Y´Â -1
+        // ï¿½Æ·ï¿½ï¿½ï¿½ (Bottom) - ï¿½ï¿½ï¿½ï¿½ Yï¿½ï¿½ -1
         Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
         Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(+0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
 
-        // ¿ÞÂÊ¸é (Left) - ¹ý¼± X´Â -1
+        // ï¿½ï¿½ï¿½Ê¸ï¿½ (Left) - ï¿½ï¿½ï¿½ï¿½ Xï¿½ï¿½ -1
         Vertex({ XMFLOAT3(-0.5f, -0.5f, +0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(-0.5f, +0.5f, +0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(-0.5f, +0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
         Vertex({ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) }),
 
-        // ¿À¸¥ÂÊ¸é (Right) - ¹ý¼± X´Â +1
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¸ï¿½ (Right) - ï¿½ï¿½ï¿½ï¿½ Xï¿½ï¿½ +1
         Vertex({ XMFLOAT3(+0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
         Vertex({ XMFLOAT3(+0.5f, +0.5f, +0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }),
@@ -262,17 +263,17 @@ void Renderer::InitializeShapesGeometry()
 
     std::array<std::uint16_t, 36> indices =
     {
-        // ¾Õ¸é
+        // ï¿½Õ¸ï¿½
         0, 1, 2,  0, 2, 3,
-        // µÞ¸é
+        // ï¿½Þ¸ï¿½
         4, 5, 6,  4, 6, 7,
-        // À­¸é
+        // ï¿½ï¿½ï¿½ï¿½
         8, 9, 10, 8, 10, 11,
-        // ¾Æ·§¸é
+        // ï¿½Æ·ï¿½ï¿½ï¿½
         12, 13, 14, 12, 14, 15,
-        // ¿ÞÂÊ¸é
+        // ï¿½ï¿½ï¿½Ê¸ï¿½
         16, 17, 18, 16, 18, 19,
-        // ¿À¸¥ÂÊ¸é
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¸ï¿½
         20, 21, 22, 20, 22, 23
     };
 
@@ -425,15 +426,12 @@ void Renderer::InitializeRenderItem()
     boxRitem->Bounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
     boxRitem->Bounds.Extents = XMFLOAT3(0.5f, 0.5f, 0.5f);
 
-    mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
-    mAllRenderItems.push_back(std::move(boxRitem));
-
     auto groundRitem = std::make_unique<RenderItem>();
 
     groundRitem->Name = "ground";
     XMStoreFloat4x4(&groundRitem->World, XMMatrixIdentity());
 
-    groundRitem->ObjectCBIndex = 1; // box°¡ 0À» ¾²°í ÀÖÀ¸´Ï 1
+    groundRitem->ObjectCBIndex = 1; // boxï¿½ï¿½ 0ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1
     groundRitem->Geo = mGeometries["groundGeo"].get();
     groundRitem->Mat = mMaterials["wood"].get();
 
@@ -448,23 +446,42 @@ void Renderer::InitializeRenderItem()
     groundRitem->Bounds.Center = XMFLOAT3(0.0f, -1.0f, 0.0f);
     groundRitem->Bounds.Extents = XMFLOAT3(10.0f, 0.01f, 10.0f);
 
+
+    mRenderItemsByType[RenderItemType::Opaque].push_back(boxRitem.get());
+    GameObject* go = mScene->CreateGameObject(boxRitem->Name);
+    go->Render = boxRitem.get();
+    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+    mScene->CreateRenderItem(boxRitem);
+
     mRenderItemsByType[RenderItemType::Opaque].push_back(groundRitem.get());
-    mAllRenderItems.push_back(std::move(groundRitem));
+    go = mScene->CreateGameObject(groundRitem->Name);
+    go->Render = groundRitem.get();
+    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+    mScene->CreateRenderItem(groundRitem);
 }
 
 void Renderer::InitializeLights()
 {
     auto mainDirectionalLight = std::make_unique<Light>();
+    mainDirectionalLight->Type = LightType::Directional;
     mainDirectionalLight->Direction = { 0.57735f, -0.57735f, 0.57735f };
     mainDirectionalLight->Strength = { 0.8f, 0.8f, 0.8f };
     mMainLight = mainDirectionalLight.get();
 
     auto pointLight1 = std::make_unique<Light>();
-    pointLight1->Position = { 0.0f, 0.0f, -10.0f };
+    pointLight1->Type = LightType::Point;
+    pointLight1->Position = { 0.0f, 10.0f, 0.0f };
     pointLight1->Strength = { 0.8f, 0.8f, 0.8f };
 
-    mAllLights["Directional"].push_back(std::move(mainDirectionalLight));
-    mAllLights["Point"].push_back(std::move(pointLight1));
+    GameObject* go = mScene->CreateGameObject("mainDirectionalLight");
+    go->LightData = mainDirectionalLight.get();
+    go->GetTransform().SetRotation(MathHelper::QuaternionFromDirection(mainDirectionalLight->Direction));
+    mScene->CreateLight("Directional", mainDirectionalLight);
+    
+    go = mScene->CreateGameObject("pointLight1");
+    go->LightData = pointLight1.get();
+    go->GetTransform().SetPosition(pointLight1->Position);
+    mScene->CreateLight("Point", pointLight1);
 }
 
 void Renderer::LoadTextures()
@@ -550,6 +567,8 @@ void Renderer::Update(float dt)
         CloseHandle(eventHandle);
     }
 
+    SyncTransforms();
+    SyncLights();
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
@@ -557,11 +576,46 @@ void Renderer::Update(float dt)
     InputManager::GetInstance()->ClearDeltas();
 }
 
+void Renderer::SyncTransforms()
+{
+    for (auto& go : mScene->GetGameObjects())
+    {
+        if (go->Render)
+            XMStoreFloat4x4(&go->Render->World, go->GetTransform().GetWorldMatrix());
+    }
+}
+
+void Renderer::SyncLights()
+{
+    for (auto& go : mScene->GetGameObjects())
+    {
+        if (!go->LightData) continue;
+
+        XMMATRIX world = go->GetTransform().GetWorldMatrix();
+        Light* light = go->LightData;
+
+        // ìœ„ì¹˜ëŠ” Point/Spotì—ë§Œ ì˜ë¯¸ê°€ ìžˆìŒ. Directionalì˜ Positionì„ ë®ì–´ì“°ì§€ ì•Šë„ë¡ íƒ€ìž…ìœ¼ë¡œ ê±¸ëŸ¬ë‚¸ë‹¤.
+        if (light->Type == LightType::Point || light->Type == LightType::Spot)
+        {
+            XMStoreFloat3(&light->Position, world.r[3]); // world í–‰ë ¬ì˜ 4ë²ˆì§¸ í–‰(translation)
+        }
+
+        // ë°©í–¥ì€ Directional/Spotì—ë§Œ ì˜ë¯¸ê°€ ìžˆìŒ. Pointì˜ Directionì„ ë®ì–´ì“°ë©´ ì•ˆ ëœë‹¤.
+        if (light->Type == LightType::Directional || light->Type == LightType::Spot)
+        {
+            // ë¡œì»¬ forward(0,0,1)ë¥¼ íšŒì „ë§Œ ì ìš©í•´ì„œ ë³€í™˜
+            XMVECTOR baseForward = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+            XMVECTOR worldDir = XMVector3TransformNormal(baseForward, world); // TransformNormalì´ë¼ ìœ„ì¹˜ëŠ” ë¬´ì‹œí•˜ê³  íšŒì „ë§Œ ì ìš©
+            XMStoreFloat3(&light->Direction, XMVector3Normalize(worldDir));
+        }
+    }
+}
+
 void Renderer::UpdateObjectConstants()
 {
     auto currObjectCB = mCurrFrameResource->ObjectCB.get();
 
-    for (auto& e : mAllRenderItems)
+    for (auto& e : mScene->GetAllRenderItems())
     {
         if (e->NumFramesDirty > 0)
         {
@@ -604,28 +658,53 @@ void Renderer::UpdatePassConstants()
     mPassCB.FarZ = 1000.0f;
 
     mPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-    int idx = 0;
-    for (auto& e : mAllLights)
+
+    // ì…°ì´ë”ëŠ” gLights ë°°ì—´ì„ [Directional][Point][Spot] ìˆœì„œì˜ ê³ ì • ìŠ¬ë¡¯ìœ¼ë¡œ í•´ì„í•œë‹¤.
+    // unordered_mapì˜ ìˆœíšŒ ìˆœì„œëŠ” ë³´ìž¥ë˜ì§€ ì•Šìœ¼ë¯€ë¡œ, ìˆœíšŒ ìˆœì„œê°€ ì•„ë‹ˆë¼ ë¼ì´íŠ¸ íƒ€ìž…ìœ¼ë¡œ ìŠ¬ë¡¯ì„ ì •í•œë‹¤.
+    int dirSlot = 0;
+    int pointSlot = NumDirLights;
+    int spotSlot = NumDirLights + NumPointLights;
+
+    for (auto& e : mScene->GetAllLights())
     {
         for (auto& light : e.second)
         {
-            mPassCB.Lights[idx++] = *light.get();
+            switch (light->Type)
+            {
+            case LightType::Directional:
+                if (dirSlot < NumDirLights)
+                    mPassCB.Lights[dirSlot++] = light->ToLightData();
+                break;
+
+            case LightType::Point:
+                if (pointSlot < NumDirLights + NumPointLights)
+                    mPassCB.Lights[pointSlot++] = light->ToLightData();
+                break;
+
+            case LightType::Spot:
+                if (spotSlot < NumDirLights + NumPointLights + NumSpotLights)
+                    mPassCB.Lights[spotSlot++] = light->ToLightData();
+                break;
+            }
         }
     }
 
     float sceneRadius = 10.0f;
 
     XMVECTOR lightDir = XMLoadFloat3(&mMainLight->Direction);
-    XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // ¾ÀÀÇ ¹ÝÁö¸§À» °í·ÁÇØ ¸Ö¸® ¹èÄ¡
+    XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö¸ï¿½ ï¿½ï¿½Ä¡
     XMVECTOR targetPos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX lightView = XMMatrixLookAtLH(lightPos, targetPos, up);
-    XMStoreFloat4x4(&mPassCB.LightView, lightView);
     XMMATRIX lightProj = XMMatrixOrthographicLH(20.0f, 20.0f, 1.0f, 40.0f);
-    XMStoreFloat4x4(&mPassCB.LightProj, lightProj);
     XMMATRIX lightViewProj = lightView * lightProj;
-    XMStoreFloat4x4(&mPassCB.LightViewProj, lightViewProj);
+
+    // HLSL ìƒìˆ˜ ë²„í¼ëŠ” í–‰ë ¬ì„ column-majorë¡œ í•´ì„í•˜ë¯€ë¡œ ì—…ë¡œë“œ ì „ì— ì „ì¹˜í•´ì•¼ í•œë‹¤.
+    // (ìœ„ìª½ ì¹´ë©”ë¼ í–‰ë ¬ë“¤ê³¼ ë™ì¼í•œ ê·œì¹™)
+    XMStoreFloat4x4(&mPassCB.LightView, XMMatrixTranspose(lightView));
+    XMStoreFloat4x4(&mPassCB.LightProj, XMMatrixTranspose(lightProj));
+    XMStoreFloat4x4(&mPassCB.LightViewProj, XMMatrixTranspose(lightViewProj));
 
     auto currPassCB = mCurrFrameResource->PassCB.get();
     currPassCB->CopyData(0, mPassCB);
@@ -658,13 +737,13 @@ void Renderer::UpdateMaterialBuffer()
 
 void Renderer::Draw()
 {
-    auto cmdAllocator = mCommandQueue->GetCommandAllocator();
+    auto cmdAllocator = mCurrFrameResource->CmdAllocator.Get();
     auto commandList = mCommandQueue->GetCommandList();
 
     ThrowIfFailed(cmdAllocator->Reset());
     
     //shadow pass
-    ThrowIfFailed(commandList->Reset(cmdAllocator, mPSOs["shader_opaque"].Get()));
+    ThrowIfFailed(commandList->Reset(cmdAllocator, mPSOs["shadow_opaque"].Get()));
 
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         mShadowMap->GetResource(),
@@ -682,8 +761,10 @@ void Renderer::Draw()
     commandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
     commandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
-    for(auto& e: mRenderItemsByType)
-        DrawRenderItems(commandList, e.second); // (¿©±â¼­´Â ºû ½ÃÁ¡ÀÇ PassConstants ¹öÆÛ¸¦ Å¸°Ô ¼³Á¤ÇØ¾ß ÇÔ)
+    for (auto& e : mRenderItemsByType)
+    {
+        DrawRenderItems(commandList, e.second);
+    }
 
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         mShadowMap->GetResource(),
@@ -769,7 +850,7 @@ void Renderer::Pick(int sx, int sy)
     RenderItem* pickedItem = nullptr;
     float tMin = 9999999.0f; 
 
-    for (auto& ri : mAllRenderItems)
+    for (auto& ri : mScene->GetAllRenderItems())
     {
         XMMATRIX W = XMLoadFloat4x4(&ri->World);
         DirectX::BoundingBox worldBounds;
