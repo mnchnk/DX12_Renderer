@@ -84,7 +84,7 @@ struct VertexOut
 };
 
 float CalcShadowFactor(float4 shadowPosH)
-{
+{    
     shadowPosH.xyz /= shadowPosH.w;
     
     float currentDepth = shadowPosH.z;
@@ -129,8 +129,8 @@ float4 PS(VertexOut pin) : SV_Target
     mat.FresnelR0 = matData.FresnelR0;
     mat.Roughness = matData.Roughness;
 
-    float4 diffuse = gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)].Sample(gsamLinearWrap, pin.TexC);
-    float3 normal = gTextures[NonUniformResourceIndex(matData.NormalMapIndex)].Sample(gsamLinearWrap, pin.TexC).rgb;
+    //float4 diffuse = gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)].Sample(gsamLinearWrap, pin.TexC);
+    //float3 normal = gTextures[NonUniformResourceIndex(matData.NormalMapIndex)].Sample(gsamLinearWrap, pin.TexC).rgb;
     
     float shadowFactor = CalcShadowFactor(pin.ShadowPosH);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
@@ -142,12 +142,6 @@ float4 PS(VertexOut pin) : SV_Target
         finalColor += shadowFactor * ComputeDirectionalLight(gLights[i], mat, N, V);
     }
     
-    // 1. 방향광 누적 계산
-    for (i = 0; i < NUM_DIR_LIGHTS; ++i)
-    {
-        finalColor += ComputeDirectionalLight(gLights[i], mat, N, V);
-    }
-
     // 2. 점광원 누적 계산
     for (i = NUM_DIR_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; ++i)
     {

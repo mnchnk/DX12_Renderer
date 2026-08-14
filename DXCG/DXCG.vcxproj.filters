@@ -110,15 +110,18 @@
     <ClInclude Include="Scene.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="RenderItem.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Default.hlsl">
+    <FxCompile Include="Shader\Default.hlsl">
       <Filter>소스 파일\Shader</Filter>
     </FxCompile>
-    <FxCompile Include="LightingUtils.hlsl">
+    <FxCompile Include="Shader\LightingUtils.hlsl">
       <Filter>소스 파일\Shader</Filter>
     </FxCompile>
-    <FxCompile Include="ShadowVS.hlsl">
+    <FxCompile Include="Shader\ShadowVS.hlsl">
       <Filter>소스 파일\Shader</Filter>
     </FxCompile>
   </ItemGroup>

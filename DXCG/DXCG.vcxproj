@@ -149,6 +149,7 @@
     <ClInclude Include="GraphicsDevice.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderItem.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="SwapChain.h" />
@@ -157,13 +158,13 @@
     <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Default.hlsl">
+    <FxCompile Include="Shader\Default.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="LightingUtils.hlsl">
+    <FxCompile Include="Shader\LightingUtils.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="ShadowVS.hlsl">
+    <FxCompile Include="Shader\ShadowVS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>

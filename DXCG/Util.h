@@ -38,6 +38,31 @@ public:
                 0.0f, 0.0f, 1.0f, 0.0f,
                 0.0f, 0.0f, 0.0f, 1.0f };
     }
+
+    static DirectX::XMFLOAT4 QuaternionFromDirection(DirectX::XMFLOAT3 direction, DirectX::XMFLOAT3 up = { 0.0f, 1.0f, 0.0f })
+    {
+        using namespace DirectX;
+        XMVECTOR baseForward = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+        XMVECTOR target = XMVector3Normalize(XMLoadFloat3(&direction));
+
+        float dotVal = XMVectorGetX(XMVector3Dot(baseForward, target));
+
+        XMVECTOR quat;
+        if (dotVal < -0.9999f) // 거의 정반대 방향
+        {
+            quat = XMQuaternionRotationAxis(XMLoadFloat3(&up), XM_PI);
+        }
+        else
+        {
+            XMVECTOR axis = XMVector3Normalize(XMVector3Cross(baseForward, target));
+            float angle = acosf(dotVal);
+            quat = XMQuaternionRotationAxis(axis, angle);
+        }
+
+        XMFLOAT4 result;
+        XMStoreFloat4(&result, quat);
+        return result;
+    }
 };
 
 
