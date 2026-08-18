@@ -12,6 +12,7 @@
 #include "TextureManager.h"
 #include "ShadowMap.h"
 #include "Scene.h"
+#include "ModelLoader.h"
 #include <array>
 #include <DirectXCollision.h>
 
@@ -45,12 +46,13 @@ private:
 	UINT8 mCurrFrameResourceIndex;
 	FrameResource* mCurrFrameResource = nullptr;
 
-	//RenderItem
+	//RenderItem Cache
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unique_ptr<TextureManager> mTextureManger;
-	
+	LoadedModel mCharacterModel;
+
 	//CB
 	PassConstants mPassCB;
 
@@ -66,7 +68,6 @@ private:
 
 	//Scene
 	std::unique_ptr<Scene> mScene;
-
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;

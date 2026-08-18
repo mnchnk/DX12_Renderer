@@ -7,12 +7,12 @@
 
 using Microsoft::WRL::ComPtr;
 
-// LightingUtils.hlsl의 MaxLights와 반드시 일치해야 함
+// Must match MaxLights in LightingUtils.hlsl.
 #define MAXLIGHT 16
 static const int MaxFrameResource = 3;
 
-// Default.hlsl의 NUM_DIR_LIGHTS / NUM_POINT_LIGHTS / NUM_SPOT_LIGHTS와 반드시 일치해야 함
-// gLights 배열에서 각 타입이 차지하는 슬롯 범위를 결정한다.
+// Must match NUM_DIR_LIGHTS / NUM_POINT_LIGHTS / NUM_SPOT_LIGHTS in Default.hlsl.
+// These decide which slot range of gLights each light type occupies.
 static const int NumDirLights = 1;
 static const int NumPointLights = 1;
 static const int NumSpotLights = 0;
@@ -24,8 +24,9 @@ enum class LightType
     Spot
 };
 
-// GPU로 넘어가는 레이아웃. LightingUtils.hlsl의 Light 구조체와 1:1로 대응해야 하므로
-// 타입 정보 같은 CPU 전용 필드를 여기에 추가하면 안 된다. (Material / MaterialData 관계와 동일)
+// GPU-facing layout. Must map 1:1 onto the Light struct in LightingUtils.hlsl,
+// so never add CPU-only fields (like a type tag) here.
+// Same relationship as Material / MaterialData.
 struct LightData
 {
     DirectX::XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
@@ -36,8 +37,8 @@ struct LightData
     float SpotPower = 64.0f;
 };
 
-// CPU 쪽 라이트. 타입 정보를 들고 있어서 어느 슬롯에 들어가야 하는지,
-// Transform에서 어떤 성분(위치/방향)을 가져와야 하는지 판단할 수 있다.
+// CPU-side light. Carries the type tag so we can decide which gLights slot it
+// belongs in, and which Transform component (position / direction) to read.
 struct Light
 {
     LightType Type = LightType::Directional;
@@ -125,9 +126,10 @@ struct Material
 
 struct Vertex
 {
-	DirectX::XMFLOAT3 Pos;
-	DirectX::XMFLOAT3 Normal;
-	DirectX::XMFLOAT2 TexC;
+	DirectX::XMFLOAT3 Pos;      // offset 0
+	DirectX::XMFLOAT3 Normal;   // offset 12
+	DirectX::XMFLOAT2 TexC;     // offset 24
+	DirectX::XMFLOAT3 Tangent;  // offset 32 - tangent for normal mapping (44 bytes total)
 };
 
 struct FrameResource
@@ -135,9 +137,9 @@ struct FrameResource
 public:
     FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
     {
-        // 프레임마다 전용 얼로케이터를 둔다. 얼로케이터는 그것으로 기록한 커맨드 리스트의
-        // GPU 실행이 모두 끝난 뒤에만 Reset할 수 있는데, 하나를 공유하면 아직 실행 중인
-        // 이전 프레임의 커맨드를 밟게 된다.
+        // One allocator per frame. An allocator may only be Reset once the GPU has
+        // finished every command list recorded from it, so sharing a single one
+        // would stomp on commands from a frame still in flight.
         ThrowIfFailed(device->CreateCommandAllocator(
             D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(CmdAllocator.GetAddressOf())));
 

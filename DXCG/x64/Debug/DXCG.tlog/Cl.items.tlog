@@ -6,6 +6,7 @@ C:\Users\1113a\source\repos\DXCG\DXCG\GameObject.cpp;C:\Users\1113a\source\repos
 C:\Users\1113a\source\repos\DXCG\DXCG\GameTimer.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\GameTimer.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\GraphicsDevice.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\GraphicsDevice.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\InputManager.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\InputManager.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\ModelLoader.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\ModelLoader.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Renderer.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Renderer.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Scene.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Scene.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\ShadowMap.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\ShadowMap.obj

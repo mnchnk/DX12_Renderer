@@ -66,6 +66,9 @@
     <ClCompile Include="Scene.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="ModelLoader.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GraphicsDevice.h">
@@ -111,6 +114,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="RenderItem.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoader.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
