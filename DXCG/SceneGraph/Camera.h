@@ -1,6 +1,6 @@
 #pragma once
 #include <DirectXMath.h>
-#include "InputManager.h"
+#include "Core/InputManager.h"
 
 using namespace DirectX;
 

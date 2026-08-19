@@ -1,6 +1,6 @@
-#include "CommandQueue.h"
-#include "GraphicsDevice.h"
-#include "Util.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/GraphicsDevice.h"
+#include "Graphics/Util.h"
 
 CommandQueue::~CommandQueue()
 {

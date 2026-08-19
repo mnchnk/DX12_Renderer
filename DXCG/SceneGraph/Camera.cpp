@@ -1,4 +1,4 @@
-#include "Camera.h"
+#include "SceneGraph/Camera.h"
 
 void Camera::SetLens(float foV, float aspect, float nearZ, float farZ)
 {

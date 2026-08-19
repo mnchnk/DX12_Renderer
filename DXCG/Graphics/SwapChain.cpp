@@ -1,8 +1,8 @@
-#include "SwapChain.h"
-#include "GraphicsDevice.h"
-#include "CommandQueue.h"
-#include "Util.h"
-#include "ShadowMap.h"
+#include "Graphics/SwapChain.h"
+#include "Graphics/GraphicsDevice.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/Util.h"
+#include "Graphics/ShadowMap.h"
 
 
 bool SwapChain::Initialize(GraphicsDevice* device, CommandQueue* commandQueue, HWND hWnd, UINT width, UINT height)

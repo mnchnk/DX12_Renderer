@@ -72,6 +72,7 @@ struct VertexIn
     float3 PosL : POSITION;
     float3 NormalL : NORMAL;
     float2 TexC : TEXCOORD;
+    float3 TangentL : TANGENT;
 };
 
 struct VertexOut
@@ -80,8 +81,24 @@ struct VertexOut
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
     float2 TexC : TEXCOORD;
+    float3 TangentW : TANGENT;
     float4 ShadowPosH : POSITION1;
 };
+
+// Turns a tangent space sample from a normal map into a world space normal.
+float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, float3 tangentW)
+{
+    // Texture stores [0,1]; the vector we want is [-1,1].
+    float3 normalT = 2.0f * normalMapSample - 1.0f;
+
+    // Gram-Schmidt: interpolation can leave the tangent slightly off the normal.
+    float3 N = unitNormalW;
+    float3 T = normalize(tangentW - dot(tangentW, N) * N);
+    float3 B = cross(N, T);
+
+    float3x3 TBN = float3x3(T, B, N);
+    return normalize(mul(normalT, TBN));
+}
 
 float CalcShadowFactor(float4 shadowPosH)
 {
@@ -110,8 +127,12 @@ VertexOut VS(VertexIn vin)
     vout.PosW = posW.xyz;
     
     vout.NormalW = mul(vin.NormalL, (float3x3)gWorld);
+    vout.TangentW = mul(vin.TangentL, (float3x3)gWorld);
     vout.PosH = mul(posW, gViewProj);
-    
+
+    // Without this every pixel samples texel (0,0).
+    vout.TexC = vin.TexC;
+
     vout.ShadowPosH = mul(posW, gLightViewProj);
     return vout;
 }
@@ -129,9 +150,22 @@ float4 PS(VertexOut pin) : SV_Target
     mat.FresnelR0 = matData.FresnelR0;
     mat.Roughness = matData.Roughness;
 
-    float4 diffuse = gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)].Sample(gsamLinearWrap, pin.TexC);
-    float3 normal = gTextures[NonUniformResourceIndex(matData.NormalMapIndex)].Sample(gsamLinearWrap, pin.TexC).rgb;
-    
+    // An index of -1 arrives here as 0xFFFFFFFF because the field is uint.
+    // Sampling with it would read far outside the array and hang the GPU.
+    if (matData.DiffuseMapIndex != 0xFFFFFFFF)
+    {
+        mat.DiffuseAlbedo *= gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)]
+                                .Sample(gsamAnisotropicWrap, pin.TexC);
+    }
+
+    if (matData.NormalMapIndex != 0xFFFFFFFF)
+    {
+        float3 normalSample = gTextures[NonUniformResourceIndex(matData.NormalMapIndex)]
+                                .Sample(gsamAnisotropicWrap, pin.TexC).rgb;
+
+        N = NormalSampleToWorldSpace(normalSample, N, pin.TangentW);
+    }
+
     float shadowFactor = CalcShadowFactor(pin.ShadowPosH);
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
 
@@ -141,30 +175,24 @@ float4 PS(VertexOut pin) : SV_Target
     {
         finalColor += shadowFactor * ComputeDirectionalLight(gLights[i], mat, N, V);
     }
-    
-    // 1. ¹æÇâ±¤ ´©Àû °è»ê
-    for (i = 0; i < NUM_DIR_LIGHTS; ++i)
-    {
-        finalColor += ComputeDirectionalLight(gLights[i], mat, N, V);
-    }
 
-    // 2. Á¡±¤¿ø ´©Àû °è»ê
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
     for (i = NUM_DIR_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; ++i)
     {
         finalColor += ComputePointLight(gLights[i], mat, pin.PosW, N, V);
     }
 
-    // 3. ½ºÆ÷Æ®¶óÀÌÆ® ´©Àû °è»ê
+    // 3. ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
     for (i = NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS + NUM_SPOT_LIGHTS; ++i)
     {
         finalColor += ComputeSpotLight(gLights[i], mat, pin.PosW, N, V);
     }
 
-    // °£Á¢±¤(Ambient) Ãß°¡ ¹× °¨¸¶ º¸Á¤
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(Ambient) ï¿½ß°ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     float3 ambient = gAmbientLight.rgb * mat.DiffuseAlbedo.rgb;
     finalColor += ambient;
     
-    // HDR »ö»óÀ» LDR(¸ð´ÏÅÍ)·Î ¸ÂÃß±â À§ÇÑ Tone MappingÀÌ µé¾î°£´Ù¸é ¿©±â¼­ ¼öÇàÇÕ´Ï´Ù.
+    // HDR ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ LDR(ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ ï¿½ï¿½ï¿½ß±ï¿½ ï¿½ï¿½ï¿½ï¿½ Tone Mappingï¿½ï¿½ ï¿½ï¿½î°£ï¿½Ù¸ï¿½ ï¿½ï¿½ï¿½â¼­ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
     finalColor = pow(finalColor, float3(1.0f / 2.2f, 1.0f / 2.2f, 1.0f / 2.2f));
 
     return float4(finalColor, mat.DiffuseAlbedo.a);

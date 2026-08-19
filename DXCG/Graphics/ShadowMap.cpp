@@ -1,5 +1,5 @@
-#include "ShadowMap.h"
-#include "d3dx12.h"
+#include "Graphics/ShadowMap.h"
+#include "Graphics/d3dx12.h"
 
 ShadowMap::ShadowMap(ID3D12Device* device, UINT width, UINT height)
 	:mWidth(width), mHeight(height)

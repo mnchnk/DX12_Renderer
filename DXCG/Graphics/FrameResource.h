@@ -1,16 +1,33 @@
 #pragma once
 #include <DirectXMath.h>
 #include <d3d12.h>
-#include "Util.h"
+#include "Graphics/Util.h"
 #include <wrl.h>
 #include <memory>
 
 using Microsoft::WRL::ComPtr;
 
-#define MAXLIGHT 10
+// Must match MaxLights in LightingUtils.hlsl.
+#define MAXLIGHT 16
 static const int MaxFrameResource = 3;
 
-struct Light
+// Must match NUM_DIR_LIGHTS / NUM_POINT_LIGHTS / NUM_SPOT_LIGHTS in Default.hlsl.
+// These decide which slot range of gLights each light type occupies.
+static const int NumDirLights = 1;
+static const int NumPointLights = 1;
+static const int NumSpotLights = 0;
+
+enum class LightType
+{
+    Directional = 0,
+    Point,
+    Spot
+};
+
+// GPU-facing layout. Must map 1:1 onto the Light struct in LightingUtils.hlsl,
+// so never add CPU-only fields (like a type tag) here.
+// Same relationship as Material / MaterialData.
+struct LightData
 {
     DirectX::XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
     float FalloffStart = 1.0f;                          // point/spot light only
@@ -18,6 +35,32 @@ struct Light
     float FalloffEnd = 10.0f;                           // point/spot light only
     DirectX::XMFLOAT3 Position = { 0.0f, 0.0f, 0.0f };  // point/spot light only
     float SpotPower = 64.0f;
+};
+
+// CPU-side light. Carries the type tag so we can decide which gLights slot it
+// belongs in, and which Transform component (position / direction) to read.
+struct Light
+{
+    LightType Type = LightType::Directional;
+
+    DirectX::XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
+    float FalloffStart = 1.0f;                          // point/spot light only
+    DirectX::XMFLOAT3 Direction = { 0.0f, -1.0f, 0.0f };// directional/spot light only
+    float FalloffEnd = 10.0f;                           // point/spot light only
+    DirectX::XMFLOAT3 Position = { 0.0f, 0.0f, 0.0f };  // point/spot light only
+    float SpotPower = 64.0f;
+
+    LightData ToLightData() const
+    {
+        LightData data;
+        data.Strength = Strength;
+        data.FalloffStart = FalloffStart;
+        data.Direction = Direction;
+        data.FalloffEnd = FalloffEnd;
+        data.Position = Position;
+        data.SpotPower = SpotPower;
+        return data;
+    }
 };
 
 struct ObjectConstants
@@ -51,7 +94,7 @@ struct PassConstants
 
     DirectX::XMFLOAT4 AmbientLight = { 0.0f, 0.0f, 0.0f, 1.0f };
     
-    Light Lights[MAXLIGHT];
+    LightData Lights[MAXLIGHT];
 };
 
 struct MaterialData
@@ -83,9 +126,10 @@ struct Material
 
 struct Vertex
 {
-	DirectX::XMFLOAT3 Pos;
-	DirectX::XMFLOAT3 Normal;
-	DirectX::XMFLOAT2 TexC;
+	DirectX::XMFLOAT3 Pos;      // offset 0
+	DirectX::XMFLOAT3 Normal;   // offset 12
+	DirectX::XMFLOAT2 TexC;     // offset 24
+	DirectX::XMFLOAT3 Tangent;  // offset 32 - tangent for normal mapping (44 bytes total)
 };
 
 struct FrameResource
@@ -93,9 +137,16 @@ struct FrameResource
 public:
     FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
     {
+        // One allocator per frame. An allocator may only be Reset once the GPU has
+        // finished every command list recorded from it, so sharing a single one
+        // would stomp on commands from a frame still in flight.
+        ThrowIfFailed(device->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(CmdAllocator.GetAddressOf())));
+
         PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
         ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
         MaterialBuffer = std::make_unique<UploadBuffer<MaterialData>>(device, materialCount, false);
+        ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(CmdAllocator.GetAddressOf())));
     }
 
     FrameResource(const FrameResource& rhs) = delete;

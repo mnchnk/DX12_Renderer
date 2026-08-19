@@ -3,15 +3,16 @@
 #include <unordered_map>
 #include <string>
 #include <d3d12.h>
-#include "GraphicsDevice.h"
-#include "CommandQueue.h"
-#include "SwapChain.h"
-#include "FrameResource.h"
-#include "Camera.h"
-#include "GameTimer.h"
-#include "TextureManager.h"
-#include "ShadowMap.h"
-#include "Scene.h"
+#include "Graphics/GraphicsDevice.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/SwapChain.h"
+#include "Graphics/FrameResource.h"
+#include "SceneGraph/Camera.h"
+#include "Core/GameTimer.h"
+#include "Graphics/TextureManager.h"
+#include "Graphics/ShadowMap.h"
+#include "SceneGraph/Scene.h"
+#include "Asset/ModelLoader.h"
 #include <array>
 #include <DirectXCollision.h>
 
@@ -45,12 +46,13 @@ private:
 	UINT8 mCurrFrameResourceIndex;
 	FrameResource* mCurrFrameResource = nullptr;
 
-	//RenderItem
+	//RenderItem Cache
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unique_ptr<TextureManager> mTextureManger;
-	
+	LoadedModel mCharacterModel;
+
 	//CB
 	PassConstants mPassCB;
 
@@ -61,12 +63,12 @@ private:
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
 	Light* mMainLight = nullptr;
 
-	ComPtr<ID3D12DescriptorHeap> mShadowSrvHeap;
+	ComPtr<ID3D12DescriptorHeap> mSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
 
+	UINT mShadowSrvIndex = -1;
 	//Scene
 	std::unique_ptr<Scene> mScene;
-
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer() = default;

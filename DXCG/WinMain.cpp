@@ -2,8 +2,8 @@
 
 #include <Windows.h>
 #include <crtdbg.h>
-#include "Renderer.h"
-#include "InputManager.h"
+#include "Graphics/Renderer.h"
+#include "Core/InputManager.h"
 
 // 주 창의 핸들  
 HWND ghMainWnd = 0;
