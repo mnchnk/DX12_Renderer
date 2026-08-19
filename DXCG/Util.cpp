@@ -18,10 +18,13 @@ ComPtr<ID3DBlob> CompileShader(
     const std::string& entrypoint,
     const std::string& target)
 {
-    UINT compileFlags = 0;
+    // Needed for "Texture2D gTextures[] : register(t2)". FXC rejects unbounded
+    // descriptor table arrays by default because they make graphics-tool frame
+    // captures huge.
+    UINT compileFlags = D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
 
-#if defined(DEBUG) || defined(_DEBUG)  
-    compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#if defined(DEBUG) || defined(_DEBUG)
+    compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif
 
     HRESULT hr = S_OK;

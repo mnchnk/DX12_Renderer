@@ -48,8 +48,13 @@ bool Renderer::Initialize()
     
     mShadowMap = std::make_unique<ShadowMap>(mGraphicsDevice->GetDevice(), mClientWidth, mClientHeight);
     mScene = std::make_unique<Scene>();
+
+    // Geometry first: loading the model is what tells us which textures exist.
+    InitializeShapesGeometry();
     LoadTextures();
 
+    // The root signature and the SRV heap both need the final texture count,
+    // so they must come after LoadTextures().
     if (!(
         InitializeRootSignature() &&
         InitializeDescriptorHeaps() &&
@@ -58,7 +63,6 @@ bool Renderer::Initialize()
         )) return false;
 
     InitializeLights();
-    InitializeShapesGeometry();
     InitializeMaterials();
     InitializeRenderItem();
     InitializeFrameResource();
@@ -132,29 +136,37 @@ bool Renderer::InitializeRootSignature()
 
 bool Renderer::InitializeDescriptorHeaps()
 {
-    //shadow
+    UINT texCount = mTextureManger->GetTextureCount();
+    UINT srvDescSize = mGraphicsDevice->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = 1;
+    srvHeapDesc.NumDescriptors = texCount + 1;      // 텍스처들 + 그림자맵
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mShadowSrvHeap)));
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap)));
 
+    // DSV heap for the shadow map. Not shader visible - the output merger reads
+    // this one, so it never goes through SetDescriptorHeaps and does not
+    // conflict with the SRV heap above.
     D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
     dsvHeapDesc.NumDescriptors = 1;
     dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&mShadowDsvHeap)));
 
-    mShadowMap->BuildDescriptor(mGraphicsDevice->GetDevice(),
-        mShadowSrvHeap->GetCPUDescriptorHandleForHeapStart(),
-        mShadowSrvHeap->GetGPUDescriptorHandleForHeapStart(),
-        mShadowDsvHeap->GetCPUDescriptorHandleForHeapStart());
-    
-    //texture
-    
-    mTextureManger->InitializeDescriptor(mGraphicsDevice->GetDevice());
-    return true;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE hCpu(mSrvHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE hGpu(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
+    // 0 ~ texCount-1 : 텍스처
+    mTextureManger->InitializeDescriptor(mGraphicsDevice->GetDevice(), hCpu, srvDescSize);
+
+    // texCount : 그림자맵
+    mShadowSrvIndex = texCount;
+    mShadowMap->BuildDescriptor(mGraphicsDevice->GetDevice(),
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(hCpu, texCount, srvDescSize),
+        CD3DX12_GPU_DESCRIPTOR_HANDLE(hGpu, texCount, srvDescSize),
+        mShadowDsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+    return true;
 }
 
 bool Renderer::InitializeShadersAndInputLayout()
@@ -214,7 +226,6 @@ bool Renderer::InitializePSOs()
     shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     shadowPsoDesc.SampleMask = UINT_MAX;
     shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    //�÷��� ���� �����Ƿ� ���� Ÿ�� ������ 0��, ������ UNKNOWN
     shadowPsoDesc.NumRenderTargets = 0;
     shadowPsoDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
     shadowPsoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -329,6 +340,15 @@ void Renderer::InitializeMaterials()
     gold->FresnelR0 = XMFLOAT3(1.00f, 0.71f, 0.29f);          
     gold->Roughness = 0.1f;                                   
 
+    mMaterials[plastic->Name] = std::move(plastic);
+    mMaterials[wood->Name] = std::move(wood);
+    mMaterials[iron->Name] = std::move(iron);
+    mMaterials[copper->Name] = std::move(copper);
+    mMaterials[gold->Name] = std::move(gold);
+
+    // Must run after the hand-written materials are in the map: MatCBIndex is
+    // derived from mMaterials.size(), so doing this first would hand out index 0
+    // again and collide with plastic.
     for (size_t i = 0; i < mCharacterModel.Materials.size(); i++)
     {
         const LoadedMaterial& src = mCharacterModel.Materials[i];
@@ -336,18 +356,18 @@ void Renderer::InitializeMaterials()
         auto mat = std::make_unique<Material>();
         mat->Name = src.Name;
         mat->MatCBIndex = (int)mMaterials.size();
-        mat->DiffuseSrvHeapIndex = -1;
         mat->DiffuseAlbedo = src.DiffuseAlbedo;
         mat->FresnelR0 = src.FresnelR0;
         mat->Roughness = src.Roughness;
 
+        Texture* diffuse = mTextureManger->GetTexture(src.DiffuseTextureFile);
+        mat->DiffuseSrvHeapIndex = diffuse ? diffuse->SrvHeapIndex : -1;
+
+        Texture* normal = mTextureManger->GetTexture(src.NormalTextureFile);
+        mat->NormalSrvHeapIndex = normal ? normal->SrvHeapIndex : -1;
+
         mMaterials[mat->Name] = std::move(mat);
     }
-    mMaterials[plastic->Name] = std::move(plastic);
-    mMaterials[wood->Name] = std::move(wood);
-    mMaterials[iron->Name] = std::move(iron);
-    mMaterials[copper->Name] = std::move(copper);
-    mMaterials[gold->Name] = std::move(gold);
 }
 
 void Renderer::InitializeRenderItem()
@@ -441,7 +461,24 @@ void Renderer::LoadTextures()
 {
     mTextureManger = std::make_unique<TextureManager>();
 
-    // mTextureManager->LoadTexture("wood", "Textures/WoodCrate01.dds", mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
+    for (const LoadedMaterial& mat : mCharacterModel.Materials)
+    {
+        // FBX가 참조하는 건 .png인데 우리가 로드할 건 .dds라 확장자를 바꿔준다
+        auto toDds = [](std::string f) {
+            size_t dot = f.find_last_of('.');
+            return (dot == std::string::npos ? f : f.substr(0, dot)) + ".dds";
+            };
+
+        if (!mat.DiffuseTextureFile.empty())
+            mTextureManger->LoadTexture(mat.DiffuseTextureFile,
+                "Models/" + toDds(mat.DiffuseTextureFile),
+                mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
+
+        if (!mat.NormalTextureFile.empty())
+            mTextureManger->LoadTexture(mat.NormalTextureFile,
+                "Models/" + toDds(mat.NormalTextureFile),
+                mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
+    }
 }
 
 std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> Renderer::GetStaticSamplers()
@@ -740,14 +777,15 @@ void Renderer::Draw()
     
     commandList->OMSetRenderTargets(1, &mSwapChain->GetCurrentRtvHandle(), true, &mSwapChain->GetCurrentDsvHandle());
     
-    ID3D12DescriptorHeap* heaps[] = { mShadowSrvHeap.Get() };
+    ID3D12DescriptorHeap* heaps[] = { mSrvHeap.Get() };
     commandList->SetDescriptorHeaps(1, heaps);
     commandList->SetGraphicsRootSignature(mRootSignature.Get());
     commandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
     auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
     commandList->SetGraphicsRootShaderResourceView(2, matBuffer->GetGPUVirtualAddress());
-    commandList->SetGraphicsRootDescriptorTable(3, mShadowSrvHeap->GetGPUDescriptorHandleForHeapStart());
+    commandList->SetGraphicsRootDescriptorTable(3, mShadowMap->Srv());
+    commandList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
     DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
 
@@ -822,12 +860,6 @@ void Renderer::Pick(int sx, int sy)
                 pickedItem = ri.get();
             }
         }
-    }
-
-    if (pickedItem != nullptr)
-    {
-        pickedItem->Mat = mMaterials["plastic"].get();
-        pickedItem->NumFramesDirty = MaxFrameResource;
     }
 }
 

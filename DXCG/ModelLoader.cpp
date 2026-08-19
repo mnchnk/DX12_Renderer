@@ -1,4 +1,5 @@
 #include "ModelLoader.h"
+#include "AssetImporter.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -30,26 +31,18 @@ namespace
         return unique;
     }
 
-    // Keeps only the file name from a texture path.
-    // Model files often embed the absolute path from the artist's machine,
-    // which will not exist here.
-    std::string ExtractFileName(const aiString& path)
-    {
-        std::string s = path.C_Str();
-        if (s.empty()) return {};
-
-        size_t pos = s.find_last_of("/\\");
-        return (pos == std::string::npos) ? s : s.substr(pos + 1);
-    }
-
-    std::string GetTextureFile(const aiMaterial* mat, aiTextureType type)
+    // Returns the texture reference exactly as the model file recorded it.
+    // For an embedded texture that is "*0"; otherwise it is a path, often an
+    // absolute one from the artist's machine. AssetImporter turns either form
+    // into a clean asset name, so we keep the raw string here as the lookup key.
+    std::string GetTextureRef(const aiMaterial* mat, aiTextureType type)
     {
         if (mat->GetTextureCount(type) == 0) return {};
 
         aiString path;
         if (mat->GetTexture(type, 0, &path) != AI_SUCCESS) return {};
 
-        return ExtractFileName(path);
+        return path.C_Str();
     }
 }
 
@@ -81,6 +74,15 @@ bool ModelLoader::Load(
         outError = importer.GetErrorString();
         return false;
     }
+
+    // Import-time step: pull any embedded textures out to real files and give
+    // them stable names. Returns the mapping we use below to normalize every
+    // texture reference, so nothing downstream ever sees "*0".
+    const std::string modelName = std::filesystem::path(filename).stem().string();
+    const std::string assetDir = std::filesystem::path(filename).parent_path().string();
+
+    const TextureNameMap textureNames =
+        AssetImporter::ExtractTextures(scene, modelName, assetDir.empty() ? "." : assetDir);
 
     // ---------------------------------------------------------------------
     // 1. Merge every aiMesh into one vertex/index buffer, recording each as a
@@ -186,12 +188,25 @@ bool ModelLoader::Load(
         if (aiMat->Get(AI_MATKEY_SHININESS, shininess) == AI_SUCCESS && shininess > 0.0f)
             mat.Roughness = std::clamp(1.0f - (shininess / 100.0f), 0.0f, 1.0f);
         
-        mat.DiffuseTextureFile = GetTextureFile(aiMat, aiTextureType_DIFFUSE);
+        // Turn whatever the model recorded ("*0", an absolute path, ...) into the
+        // asset name AssetImporter settled on. An unknown reference resolves to
+        // an empty string, which downstream reads as "this material has no map".
+        auto resolve = [&textureNames](const std::string& ref) -> std::string
+        {
+            if (ref.empty()) return {};
+
+            auto it = textureNames.find(ref);
+            return (it != textureNames.end()) ? it->second : std::string();
+        };
+
+        mat.DiffuseTextureFile = resolve(GetTextureRef(aiMat, aiTextureType_DIFFUSE));
 
         // FBX normally stores normal maps in the NORMALS slot, OBJ in HEIGHT.
-        mat.NormalTextureFile = GetTextureFile(aiMat, aiTextureType_NORMALS);
-        if (mat.NormalTextureFile.empty())
-            mat.NormalTextureFile = GetTextureFile(aiMat, aiTextureType_HEIGHT);
+        std::string normalRef = GetTextureRef(aiMat, aiTextureType_NORMALS);
+        if (normalRef.empty())
+            normalRef = GetTextureRef(aiMat, aiTextureType_HEIGHT);
+
+        mat.NormalTextureFile = resolve(normalRef);
 
         outModel.Materials.push_back(std::move(mat));
     }
@@ -203,7 +218,7 @@ bool ModelLoader::Load(
     const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint32_t);
 
     auto geo = std::make_unique<MeshGeometry>();
-    geo->Name = std::filesystem::path(filename).stem().string();
+    geo->Name = modelName;
 
     ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
     CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);

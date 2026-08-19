@@ -63,9 +63,10 @@ private:
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
 	Light* mMainLight = nullptr;
 
-	ComPtr<ID3D12DescriptorHeap> mShadowSrvHeap;
+	ComPtr<ID3D12DescriptorHeap> mSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
 
+	UINT mShadowSrvIndex = -1;
 	//Scene
 	std::unique_ptr<Scene> mScene;
 public:
