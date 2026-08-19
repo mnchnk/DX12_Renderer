@@ -30,9 +30,9 @@ public:
 		ID3D12Device* device,
 		ID3D12GraphicsCommandList* cmdList);
 
-	void InitializeDescriptor(ID3D12Device* device);
+	void InitializeDescriptor(ID3D12Device* device, CD3DX12_CPU_DESCRIPTOR_HANDLE& hCpu, UINT srvDescSize);
 
-	inline Texture* GetTexture(const std::string& name);
+	Texture* GetTexture(const std::string& name);
 	const std::unordered_map<std::string, std::unique_ptr<Texture>>& GetAllTextures() const { return mTextures; }
 	int GetTextureCount() const { return mTextureCount; }
 	ComPtr<ID3D12DescriptorHeap> GetTextureHeap() const { return mTextureHeap; }
