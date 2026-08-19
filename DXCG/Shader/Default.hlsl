@@ -33,7 +33,7 @@ cbuffer cbPass : register(b1)
     float4x4 gLightView;
     float4x4 gLightProj;
     float4x4 gLightViewProj;
-    
+
     float3 gEyePosW;
     float cbPerObjectPad1;
     float2 gRenderTargetSize;
@@ -46,11 +46,12 @@ cbuffer cbPass : register(b1)
 
     // Indices [0, NUM_DIR_LIGHTS) are directional lights;
     // indices [NUM_DIR_LIGHTS, NUM_DIR_LIGHTS+NUM_POINT_LIGHTS) are point lights;
-    // indices [NUM_DIR_LIGHTS+NUM_POINT_LIGHTS, NUM_DIR_LIGHTS+NUM_POINT_LIGHT+NUM_SPOT_LIGHTS)
-    // are spot lights for a maximum of MaxLights per object.
+    // indices [NUM_DIR_LIGHTS+NUM_POINT_LIGHTS, ...+NUM_SPOT_LIGHTS) are spot lights.
+    // Renderer::UpdatePassConstants fills these fixed slots by light type.
     Light gLights[MaxLights];
 };
 
+// Must match the C++ MaterialData struct in Graphics/FrameResource.h byte for byte.
 struct MaterialData
 {
     float4 DiffuseAlbedo;
@@ -65,6 +66,9 @@ struct MaterialData
 
 StructuredBuffer<MaterialData> gMaterialData : register(t0);
 Texture2D gShadowMap : register(t1);
+
+// Unbounded array - needs D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES.
+// Indexed per material through MaterialData::DiffuseMapIndex / NormalMapIndex.
 Texture2D gTextures[] : register(t2);
 
 struct VertexIn
@@ -103,55 +107,59 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
 float CalcShadowFactor(float4 shadowPosH)
 {
     shadowPosH.xyz /= shadowPosH.w;
-    
+
     float currentDepth = shadowPosH.z;
-    
+
+    // Light NDC (-1..1, Y up) -> texture UV (0..1, Y down)
     float2 shadowUV = shadowPosH.xy * float2(0.5f, -0.5f) + 0.5f;
-    
+
+    // Outside the light frustum nothing can cast a shadow here.
     if (shadowUV.x < 0.0f || shadowUV.x > 1.0f ||
         shadowUV.y < 0.0f || shadowUV.y > 1.0f ||
         currentDepth > 1.0f)
     {
         return 1.0f;
     }
-    
+
+    // Comparison sampler: compares first, then filters (PCF).
     return gShadowMap.SampleCmpLevelZero(gsamShadow, shadowUV, currentDepth).r;
 }
-
 
 VertexOut VS(VertexIn vin)
 {
     VertexOut vout = (VertexOut) 0.0f;
-      
+
     float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
     vout.PosW = posW.xyz;
-    
-    vout.NormalW = mul(vin.NormalL, (float3x3)gWorld);
-    vout.TangentW = mul(vin.TangentL, (float3x3)gWorld);
+
+    vout.NormalW = mul(vin.NormalL, (float3x3) gWorld);
+    vout.TangentW = mul(vin.TangentL, (float3x3) gWorld);
     vout.PosH = mul(posW, gViewProj);
 
     // Without this every pixel samples texel (0,0).
     vout.TexC = vin.TexC;
 
+    // Same position in light space, used to look up the shadow map.
     vout.ShadowPosH = mul(posW, gLightViewProj);
+
     return vout;
 }
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    
     float3 N = normalize(pin.NormalW);
     float3 V = normalize(gEyePosW - pin.PosW);
 
     MaterialData matData = gMaterialData[gMaterialIndex];
-    
+
     Material mat;
     mat.DiffuseAlbedo = matData.DiffuseAlbedo;
     mat.FresnelR0 = matData.FresnelR0;
     mat.Roughness = matData.Roughness;
 
     // An index of -1 arrives here as 0xFFFFFFFF because the field is uint.
-    // Sampling with it would read far outside the array and hang the GPU.
+    // Sampling with it would read far outside the array and hang the GPU,
+    // so every map needs its own guard.
     if (matData.DiffuseMapIndex != 0xFFFFFFFF)
     {
         mat.DiffuseAlbedo *= gTextures[NonUniformResourceIndex(matData.DiffuseMapIndex)]
@@ -171,28 +179,28 @@ float4 PS(VertexOut pin) : SV_Target
 
     int i = 0;
 
+    // Directional lights - the only ones the shadow map covers.
     for (i = 0; i < NUM_DIR_LIGHTS; ++i)
     {
         finalColor += shadowFactor * ComputeDirectionalLight(gLights[i], mat, N, V);
     }
 
-    // 2. ������ ���� ���
+    // Point lights
     for (i = NUM_DIR_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; ++i)
     {
         finalColor += ComputePointLight(gLights[i], mat, pin.PosW, N, V);
     }
 
-    // 3. ����Ʈ����Ʈ ���� ���
+    // Spot lights
     for (i = NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; i < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS + NUM_SPOT_LIGHTS; ++i)
     {
         finalColor += ComputeSpotLight(gLights[i], mat, pin.PosW, N, V);
     }
 
-    // ������(Ambient) �߰� �� ���� ����
     float3 ambient = gAmbientLight.rgb * mat.DiffuseAlbedo.rgb;
     finalColor += ambient;
-    
-    // HDR ������ LDR(�����)�� ���߱� ���� Tone Mapping�� ���ٸ� ���⼭ �����մϴ�.
+
+    // Gamma correction (linear -> sRGB display space).
     finalColor = pow(finalColor, float3(1.0f / 2.2f, 1.0f / 2.2f, 1.0f / 2.2f));
 
     return float4(finalColor, mat.DiffuseAlbedo.a);

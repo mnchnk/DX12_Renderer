@@ -19,3 +19,9 @@ x86/
 *.lib
 *.dll
 *.exp
+
+# 공부 메모 무시
+DXCG/memo/
+
+# 캐릭터 모델 fbx 파일 무시
+DXCG/Models

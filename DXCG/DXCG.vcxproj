@@ -105,6 +105,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,40 +128,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-<<<<<<< Updated upstream
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="CommandQueue.cpp" />
-    <ClCompile Include="DDSTextureLoader.cpp" />
-    <ClCompile Include="FrameResource.h" />
-    <ClCompile Include="GameObject.cpp" />
-    <ClCompile Include="GameTimer.cpp" />
-    <ClCompile Include="GraphicsDevice.cpp" />
-    <ClCompile Include="InputManager.cpp" />
-    <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="ShadowMap.cpp" />
-    <ClCompile Include="SwapChain.cpp" />
-    <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="Transform.cpp" />
-    <ClCompile Include="Util.cpp" />
-    <ClCompile Include="WinMain.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="CommandQueue.h" />
-    <ClInclude Include="DDSTextureLoader.h" />
-    <ClInclude Include="GameObject.h" />
-    <ClInclude Include="GameTimer.h" />
-    <ClInclude Include="GraphicsDevice.h" />
-    <ClInclude Include="InputManager.h" />
-    <ClInclude Include="Renderer.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="ShadowMap.h" />
-    <ClInclude Include="SwapChain.h" />
-    <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="Transform.h" />
-    <ClInclude Include="Util.h" />
-=======
     <ClCompile Include="Asset\AssetImporter.cpp" />
     <ClCompile Include="Asset\ModelLoader.cpp" />
     <ClCompile Include="Core\GameTimer.cpp" />
@@ -199,16 +166,15 @@
     <ClInclude Include="SceneGraph\GameObject.h" />
     <ClInclude Include="SceneGraph\Scene.h" />
     <ClInclude Include="SceneGraph\Transform.h" />
->>>>>>> Stashed changes
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Default.hlsl">
+    <FxCompile Include="Shader\Default.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="LightingUtils.hlsl">
+    <FxCompile Include="Shader\LightingUtils.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="ShadowVS.hlsl">
+    <FxCompile Include="Shader\ShadowVS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>

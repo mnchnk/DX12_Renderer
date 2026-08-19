@@ -140,7 +140,7 @@ bool Renderer::InitializeDescriptorHeaps()
     UINT srvDescSize = mGraphicsDevice->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = texCount + 1;      // 텍스처들 + 그림자맵
+    srvHeapDesc.NumDescriptors = texCount + 1;      // textures + shadow map
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap)));
@@ -156,10 +156,10 @@ bool Renderer::InitializeDescriptorHeaps()
     CD3DX12_CPU_DESCRIPTOR_HANDLE hCpu(mSrvHeap->GetCPUDescriptorHandleForHeapStart());
     CD3DX12_GPU_DESCRIPTOR_HANDLE hGpu(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
-    // 0 ~ texCount-1 : 텍스처
+    // [0 .. texCount-1] textures
     mTextureManger->InitializeDescriptor(mGraphicsDevice->GetDevice(), hCpu, srvDescSize);
 
-    // texCount : 그림자맵
+    // [texCount] shadow map
     mShadowSrvIndex = texCount;
     mShadowMap->BuildDescriptor(mGraphicsDevice->GetDevice(),
         CD3DX12_CPU_DESCRIPTOR_HANDLE(hCpu, texCount, srvDescSize),
@@ -374,8 +374,8 @@ void Renderer::InitializeRenderItem()
 {
     UINT objCBIndex = 0;
 
-    // 모델의 서브메시마다 RenderItem 하나씩
-    MeshGeometry* charGeo = mGeometries["Ely By K.Atienza"].get();  // geo->Name = 파일명 stem
+    // one RenderItem per submesh
+    MeshGeometry* charGeo = mGeometries["Ely By K.Atienza"].get();  // geo->Name is the model file stem
     for (const LoadedSubmesh& sub : mCharacterModel.Submeshes)
     {
         auto ritem = std::make_unique<RenderItem>();
@@ -400,12 +400,12 @@ void Renderer::InitializeRenderItem()
         GameObject* go = mScene->CreateGameObject(sub.Name);
         go->Render = ritem.get();
         go->GetTransform().SetPosition(XMFLOAT3(0.0f, -1.0f, 0.0f));
-        go->GetTransform().SetScale(XMFLOAT3(0.01f, 0.01f, 0.01f));   // 아래 설명 참고
+        go->GetTransform().SetScale(XMFLOAT3(0.01f, 0.01f, 0.01f));   // Mixamo models are authored in centimetres
 
         mScene->CreateRenderItem(ritem);
     }
 
-    // ground는 objCBIndex를 이어받아서 기존 코드 그대로
+    // ground continues the same objCBIndex counter
     auto groundRitem = std::make_unique<RenderItem>();
 
     groundRitem->Name = "ground";
@@ -463,7 +463,7 @@ void Renderer::LoadTextures()
 
     for (const LoadedMaterial& mat : mCharacterModel.Materials)
     {
-        // FBX가 참조하는 건 .png인데 우리가 로드할 건 .dds라 확장자를 바꿔준다
+        // the model references .png, but we load the converted .dds
         auto toDds = [](std::string f) {
             size_t dot = f.find_last_of('.');
             return (dot == std::string::npos ? f : f.substr(0, dot)) + ".dds";

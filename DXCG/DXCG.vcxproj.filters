@@ -1,268 +1,141 @@
-<<<<<<< Updated upstream
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="Core">
+      <UniqueIdentifier>{510f6fbe-e124-4159-b958-4c4ee782c7c1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="헤더 파일">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Graphics">
+      <UniqueIdentifier>{0100bad3-77f5-457f-8a01-00d0c179eea8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="리소스 파일">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="SceneGraph">
+      <UniqueIdentifier>{238afd3c-6036-4bef-b463-48d2fa2c436e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="소스 파일\Shader">
-      <UniqueIdentifier>{178087c2-2d56-4f21-9ffe-56f299df2b32}</UniqueIdentifier>
+    <Filter Include="Asset">
+      <UniqueIdentifier>{d99e19fb-f14b-4808-922d-0d0fd0d58ab2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{5e3e3bfb-3c22-4402-b12d-9de1ea3aaac1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WinMain.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Asset\AssetImporter.cpp">
+      <Filter>Asset</Filter>
     </ClCompile>
-    <ClCompile Include="GraphicsDevice.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Asset\ModelLoader.cpp">
+      <Filter>Asset</Filter>
     </ClCompile>
-    <ClCompile Include="CommandQueue.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Core\GameTimer.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="SwapChain.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Core\InputManager.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Renderer.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\CommandQueue.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="FrameResource.h">
-      <Filter>헤더 파일</Filter>
+    <ClCompile Include="Graphics\DDSTextureLoader.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Util.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\GraphicsDevice.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Camera.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\Renderer.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="TextureManager.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\ShadowMap.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="DDSTextureLoader.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\SwapChain.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="InputManager.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\TextureManager.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="GameTimer.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Graphics\Util.cpp">
+      <Filter>Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="ShadowMap.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="SceneGraph\Camera.cpp">
+      <Filter>SceneGraph</Filter>
     </ClCompile>
-    <ClCompile Include="Transform.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="SceneGraph\GameObject.cpp">
+      <Filter>SceneGraph</Filter>
     </ClCompile>
-    <ClCompile Include="GameObject.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="SceneGraph\Scene.cpp">
+      <Filter>SceneGraph</Filter>
     </ClCompile>
-    <ClCompile Include="Scene.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="SceneGraph\Transform.cpp">
+      <Filter>SceneGraph</Filter>
     </ClCompile>
+    <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GraphicsDevice.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Asset\AssetImporter.h">
+      <Filter>Asset</Filter>
     </ClInclude>
-    <ClInclude Include="Util.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Asset\ModelLoader.h">
+      <Filter>Asset</Filter>
     </ClInclude>
-    <ClInclude Include="CommandQueue.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\GameTimer.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="SwapChain.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\InputManager.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\CommandQueue.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\d3dx12.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="TextureManager.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\DDSTextureLoader.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="DDSTextureLoader.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\FrameResource.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="InputManager.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\GraphicsDevice.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="GameTimer.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\RenderItem.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="ShadowMap.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\Renderer.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Transform.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\ShadowMap.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="GameObject.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\SwapChain.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Graphics\TextureManager.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Util.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneGraph\Camera.h">
+      <Filter>SceneGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneGraph\GameObject.h">
+      <Filter>SceneGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneGraph\Scene.h">
+      <Filter>SceneGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneGraph\Transform.h">
+      <Filter>SceneGraph</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Default.hlsl">
-      <Filter>소스 파일\Shader</Filter>
+    <FxCompile Include="Shader\Default.hlsl">
+      <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="LightingUtils.hlsl">
-      <Filter>소스 파일\Shader</Filter>
+    <FxCompile Include="Shader\LightingUtils.hlsl">
+      <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="ShadowVS.hlsl">
-      <Filter>소스 파일\Shader</Filter>
+    <FxCompile Include="Shader\ShadowVS.hlsl">
+      <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
-=======
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup>
-    <Filter Include="Core">
-      <UniqueIdentifier>{ae71e3ba-f31b-49f1-9aa5-782be6d98bc3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics">
-      <UniqueIdentifier>{aa32cad1-8eeb-4b63-a1c3-9b8a1bfd52f0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="SceneGraph">
-      <UniqueIdentifier>{355e9801-db04-48cf-aa05-cf8ffd1ede02}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Asset">
-      <UniqueIdentifier>{7f9f4b3b-7134-4daf-8c4d-df947fe8b0df}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shader">
-      <UniqueIdentifier>{7ee1a172-0f03-47ce-92cc-20c9ed964bc3}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Asset\AssetImporter.cpp">
-      <Filter>Asset</Filter>
-    </ClCompile>
-    <ClCompile Include="Asset\ModelLoader.cpp">
-      <Filter>Asset</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\GameTimer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\InputManager.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\CommandQueue.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\DDSTextureLoader.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\GraphicsDevice.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Renderer.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\ShadowMap.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\SwapChain.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\TextureManager.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Util.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneGraph\Camera.cpp">
-      <Filter>SceneGraph</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneGraph\GameObject.cpp">
-      <Filter>SceneGraph</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneGraph\Scene.cpp">
-      <Filter>SceneGraph</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneGraph\Transform.cpp">
-      <Filter>SceneGraph</Filter>
-    </ClCompile>
-    <ClCompile Include="WinMain.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Asset\AssetImporter.h">
-      <Filter>Asset</Filter>
-    </ClInclude>
-    <ClInclude Include="Asset\ModelLoader.h">
-      <Filter>Asset</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\GameTimer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\InputManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\CommandQueue.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\d3dx12.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\DDSTextureLoader.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\FrameResource.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\GraphicsDevice.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\RenderItem.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Renderer.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\ShadowMap.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\SwapChain.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\TextureManager.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Util.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneGraph\Camera.h">
-      <Filter>SceneGraph</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneGraph\GameObject.h">
-      <Filter>SceneGraph</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneGraph\Scene.h">
-      <Filter>SceneGraph</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneGraph\Transform.h">
-      <Filter>SceneGraph</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Shader\Default.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
-    <FxCompile Include="Shader\LightingUtils.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
-    <FxCompile Include="Shader\ShadowVS.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
-  </ItemGroup>
->>>>>>> Stashed changes
 </Project>
