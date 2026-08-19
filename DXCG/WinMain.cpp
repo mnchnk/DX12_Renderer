@@ -1,11 +1,16 @@
-#pragma comment(linker, "/SUBSYSTEM:WINDOWS")
+﻿#pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
 #include <Windows.h>
 #include <crtdbg.h>
 #include "Graphics/Renderer.h"
 #include "Core/InputManager.h"
+#include <imgui.h>
 
-// �� â�� �ڵ�  
+// imgui_impl_win32.h에 선언이 없어서 관례적으로 직접 extern 선언한다.
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
+    HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// 주 창의 핸들
 HWND ghMainWnd = 0;
 
 bool InitWindowsApp(HINSTANCE instanceHandle, int show);
@@ -90,7 +95,7 @@ int Run()
 	MSG msg = { 0 };
 
 	BOOL bRet = 1;
-	while ((bRet = GetMessage(&msg, 0, 0, 0)) != 0) // GetMessage�� WM_QUIT�� ������ 0�� ���� -> ���� ����
+	while ((bRet = GetMessage(&msg, 0, 0, 0)) != 0) // GetMessage는 WM_QUIT를 받으면 0을 리턴 -> 루프 종료
 	{
 		if (bRet == -1)
 		{
@@ -110,6 +115,12 @@ int Run()
 LRESULT CALLBACK
 WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	// ImGui가 먼저 메시지를 본다. 이게 없으면 UI가 그려지기만 하고 조작이 안 된다.
+	// ImGui가 소비한 메시지는 게임 입력으로 넘기지 않는다.
+	if (ImGui::GetCurrentContext() != nullptr &&
+		ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+		return true;
+
 	switch (msg)
 	{
 	case WM_KEYDOWN:

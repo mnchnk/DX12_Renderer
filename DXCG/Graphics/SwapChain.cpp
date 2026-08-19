@@ -1,4 +1,4 @@
-#include "Graphics/SwapChain.h"
+ï»¿#include "Graphics/SwapChain.h"
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/Util.h"
@@ -70,7 +70,7 @@ bool SwapChain::Initialize(GraphicsDevice* device, CommandQueue* commandQueue, H
 	depthStencilDesc.Height = mHeight;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 24ºñÆ®´Â ±íÀÌ, 8ºñÆ®´Â ½ºÅÙ½Ç¿¡ »ç¿ë
+	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 24ë¹„íŠ¸ëŠ” ê¹Šì´, 8ë¹„íŠ¸ëŠ” ìŠ¤í…ì‹¤ì— ì‚¬ìš©
 	depthStencilDesc.SampleDesc.Count = 1;
 	depthStencilDesc.SampleDesc.Quality = 0;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -92,7 +92,7 @@ bool SwapChain::Initialize(GraphicsDevice* device, CommandQueue* commandQueue, H
 		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE, // ÃÊ±â »óÅÂ´Â ±íÀÌ ¾²±â ¸ğµå
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, // ì´ˆê¸° ìƒíƒœëŠ” ê¹Šì´ ì“°ê¸° ëª¨ë“œ
 		&optClear,
 		IID_PPV_ARGS(&mDepthStencil)
 	));

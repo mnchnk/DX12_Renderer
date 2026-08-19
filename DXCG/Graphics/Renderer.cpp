@@ -1,4 +1,4 @@
-#include "Graphics/Renderer.h"
+﻿#include "Graphics/Renderer.h"
 #include <memory>
 #include <array>
 #include <d3d12.h>
@@ -14,13 +14,148 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-
+#include <imgui.h>
+#include <imgui_impl_win32.h>
+#include <imgui_impl_dx12.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
 using namespace DirectX;
+
+namespace
+{
+    // ImGui가 SRV 슬롯이 필요할 때 부르는 콜백.
+    // 멤버 함수를 직접 넘길 수 없어서, UserData로 받은 Renderer로 위임한다.
+    void ImGuiSrvAlloc(ImGui_ImplDX12_InitInfo* info,
+        D3D12_CPU_DESCRIPTOR_HANDLE* outCpu, D3D12_GPU_DESCRIPTOR_HANDLE* outGpu)
+    {
+        static_cast<Renderer*>(info->UserData)->AllocImGuiSrv(outCpu, outGpu);
+    }
+
+    void ImGuiSrvFree(ImGui_ImplDX12_InitInfo* info,
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE)
+    {
+        static_cast<Renderer*>(info->UserData)->FreeImGuiSrv(cpu);
+    }
+}
+
+Renderer::~Renderer()
+{
+    // GPU가 ImGui 리소스(폰트 텍스처, 정점 버퍼)를 아직 쓰고 있을 수 있으니 먼저 대기.
+    if (mCommandQueue)
+        mCommandQueue->FlushCommandQueue();
+
+    if (ImGui::GetCurrentContext())
+    {
+        ImGui_ImplDX12_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+    }
+}
+
+void Renderer::AllocImGuiSrv(D3D12_CPU_DESCRIPTOR_HANDLE* outCpu, D3D12_GPU_DESCRIPTOR_HANDLE* outGpu)
+{
+    // 슬롯이 모자라면 ImGuiSrvCount를 늘려야 한다.
+    assert(!mImGuiFreeSlots.empty() && "ImGui SRV 슬롯 부족");
+
+    UINT slot = mImGuiFreeSlots.back();
+    mImGuiFreeSlots.pop_back();
+
+    *outCpu = CD3DX12_CPU_DESCRIPTOR_HANDLE(
+        mSrvHeap->GetCPUDescriptorHandleForHeapStart(), slot, mSrvDescSize);
+    *outGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+        mSrvHeap->GetGPUDescriptorHandleForHeapStart(), slot, mSrvDescSize);
+}
+
+void Renderer::FreeImGuiSrv(D3D12_CPU_DESCRIPTOR_HANDLE cpu)
+{
+    // 핸들 주소를 역산해서 슬롯 번호를 구한다.
+    D3D12_CPU_DESCRIPTOR_HANDLE start = mSrvHeap->GetCPUDescriptorHandleForHeapStart();
+    UINT slot = (UINT)((cpu.ptr - start.ptr) / mSrvDescSize);
+
+    mImGuiFreeSlots.push_back(slot);
+}
+
+bool Renderer::InitializeImGui()
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplWin32_Init(mHWnd);
+
+    ImGui_ImplDX12_InitInfo info = {};
+    info.Device = mGraphicsDevice->GetDevice();
+    info.CommandQueue = mCommandQueue->GetCommandQueue();  // 폰트 텍스처 업로드용
+    info.NumFramesInFlight = MaxFrameResource;             // 우리 프레임 리소스 개수와 맞춘다
+    info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;           // 백버퍼 포맷과 일치해야 함
+    info.SrvDescriptorHeap = mSrvHeap.Get();
+    info.SrvDescriptorAllocFn = ImGuiSrvAlloc;
+    info.SrvDescriptorFreeFn = ImGuiSrvFree;
+    info.UserData = this;
+
+    return ImGui_ImplDX12_Init(&info);
+}
+
+void Renderer::BuildDebugUI()
+{
+    ImGui::Begin("Debug");
+
+    ImGui::Text("%.1f FPS (%.3f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::Text("draw items: %d", (int)mRenderItemsByType[RenderItemType::Opaque].size());
+
+    if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        // 방향광 방향. SyncLights가 Transform에서 방향을 뽑으므로,
+        // 여기서 바꾼 값을 GameObject의 회전에 다시 반영한다.
+        if (ImGui::SliderFloat3("Direction", &mLightDirection.x, -1.0f, 1.0f))
+        {
+            for (auto& go : mScene->GetGameObjects())
+            {
+                if (go->LightData && go->LightData->Type == LightType::Directional)
+                    go->GetTransform().SetRotation(MathHelper::QuaternionFromDirection(mLightDirection));
+            }
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        for (auto& go : mScene->GetGameObjects())
+        {
+            if (!go->Render) continue;
+
+            ImGui::PushID(go.get());
+            if (ImGui::TreeNode(go->GetName().c_str()))
+            {
+                Transform& tr = go->GetTransform();
+
+                XMFLOAT3 pos = tr.GetPosition();
+                if (ImGui::DragFloat3("Position", &pos.x, 0.05f))
+                    tr.SetPosition(pos);
+
+                XMFLOAT3 scale = tr.GetScale();
+                if (ImGui::DragFloat3("Scale", &scale.x, 0.001f, 0.0001f, 100.0f))
+                    tr.SetScale(scale);
+
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Shadow Map"))
+    {
+        // 그림자맵을 그대로 화면에 띄운다. 전치 버그 같은 건 이걸 보면 바로 보인다.
+        CD3DX12_GPU_DESCRIPTOR_HANDLE shadowSrv(
+            mSrvHeap->GetGPUDescriptorHandleForHeapStart(), mShadowSrvIndex, mSrvDescSize);
+
+        ImGui::Image((ImTextureID)shadowSrv.ptr, ImVec2(256, 256));
+    }
+
+    ImGui::End();
+}
 
 bool Renderer::Initialize()
 {
@@ -55,9 +190,11 @@ bool Renderer::Initialize()
 
     // The root signature and the SRV heap both need the final texture count,
     // so they must come after LoadTextures().
+    // InitializeImGui는 SRV 힙에서 슬롯을 받아가므로 반드시 힙 생성 이후여야 한다.
     if (!(
         InitializeRootSignature() &&
         InitializeDescriptorHeaps() &&
+        InitializeImGui() &&
         InitializeShadersAndInputLayout() &&
         InitializePSOs()
         )) return false;
@@ -96,7 +233,7 @@ bool Renderer::InitializeFrameResource()
 bool Renderer::InitializeRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE texTable;
-    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, 2, 0); // 2��° �Ķ���ʹ� �ؽ�ó ����
+    texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, 2, 0); // 두 번째 인자가 이 range에 들어갈 SRV 개수 (-1 = unbounded)
 
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
@@ -137,10 +274,12 @@ bool Renderer::InitializeRootSignature()
 bool Renderer::InitializeDescriptorHeaps()
 {
     UINT texCount = mTextureManger->GetTextureCount();
-    UINT srvDescSize = mGraphicsDevice->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    mSrvDescSize = mGraphicsDevice->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    UINT srvDescSize = mSrvDescSize;
 
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = texCount + 1;      // textures + shadow map
+    // 텍스처들 + 그림자맵 1 + ImGui 예약분
+    srvHeapDesc.NumDescriptors = texCount + 1 + ImGuiSrvCount;
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvHeap)));
@@ -165,6 +304,12 @@ bool Renderer::InitializeDescriptorHeaps()
         CD3DX12_CPU_DESCRIPTOR_HANDLE(hCpu, texCount, srvDescSize),
         CD3DX12_GPU_DESCRIPTOR_HANDLE(hGpu, texCount, srvDescSize),
         mShadowDsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+    // [texCount+1 .. texCount+ImGuiSrvCount] ImGui가 가져다 쓸 슬롯 풀
+    mImGuiSrvStart = texCount + 1;
+    mImGuiFreeSlots.clear();
+    for (UINT i = 0; i < ImGuiSrvCount; ++i)
+        mImGuiFreeSlots.push_back(mImGuiSrvStart + i);
 
     return true;
 }
@@ -348,7 +493,7 @@ void Renderer::InitializeMaterials()
 
     // Must run after the hand-written materials are in the map: MatCBIndex is
     // derived from mMaterials.size(), so doing this first would hand out index 0
-    // again and collide with plastic.
+    // 광원 방향 반대편으로 씬 반지름의 2배만큼 물러난 위치
     for (size_t i = 0; i < mCharacterModel.Materials.size(); i++)
     {
         const LoadedMaterial& src = mCharacterModel.Materials[i];
@@ -557,12 +702,25 @@ void Renderer::Update(float dt)
         CloseHandle(eventHandle);
     }
 
+    // 프레임당 정확히 한 번: NewFrame -> UI 선언 -> Render
+    // ImGui는 즉시 모드라 매 프레임 UI를 다시 선언해야 한다.
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+    BuildDebugUI();
+    ImGui::Render();   // 위젯을 정점 데이터로 변환만 함. GPU 명령은 Draw()에서.
+
     SyncTransforms();
     SyncLights();
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
-    mMainCamera.Update(dt);
+
+    // UI 위에서 드래그할 때 카메라가 같이 돌아가지 않도록 막는다.
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
+        mMainCamera.Update(dt);
+
     InputManager::GetInstance()->ClearDeltas();
 }
 
@@ -570,8 +728,20 @@ void Renderer::SyncTransforms()
 {
     for (auto& go : mScene->GetGameObjects())
     {
-        if (go->Render)
-            XMStoreFloat4x4(&go->Render->World, go->GetTransform().GetWorldMatrix());
+        if (!go->Render) continue;
+
+        XMFLOAT4X4 world;
+        XMStoreFloat4x4(&world, go->GetTransform().GetWorldMatrix());
+
+        // 값이 실제로 바뀐 경우에만 더티로 표시한다.
+        // 상수 버퍼는 프레임 리소스마다 한 벌씩 있으므로, 한 번 바뀌면
+        // MaxFrameResource 프레임 동안 계속 써야 모든 벌에 반영된다.
+        // 이 표시를 빼먹으면 CPU쪽 World만 바뀌고 GPU는 옛날 값을 계속 본다.
+        if (memcmp(&world, &go->Render->World, sizeof(XMFLOAT4X4)) != 0)
+        {
+            go->Render->World = world;
+            go->Render->NumFramesDirty = MaxFrameResource;
+        }
     }
 }
 
@@ -685,7 +855,7 @@ void Renderer::UpdatePassConstants()
     float sceneRadius = 10.0f;
 
     XMVECTOR lightDir = XMLoadFloat3(&mMainLight->Direction);
-    XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // ���� �������� ������ �ָ� ��ġ
+    XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // 광원 방향 반대편으로 씬 반지름의 2배만큼 물러난 위치
     XMVECTOR targetPos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
@@ -788,6 +958,10 @@ void Renderer::Draw()
     commandList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
     DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
+    // UI는 씬 위에 겹쳐 그려야 하므로 마지막.
+    // 아직 백버퍼가 RENDER_TARGET 상태이고 mSrvHeap이 바인딩된 시점이어야 한다.
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSwapChain->GetCurrentRenderTarget(),
         D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

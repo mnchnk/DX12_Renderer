@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <exception>
 #include <stdexcept>
 #include <comdef.h>
@@ -48,7 +48,7 @@ public:
         float dotVal = XMVectorGetX(XMVector3Dot(baseForward, target));
 
         XMVECTOR quat;
-        if (dotVal < -0.9999f) // °ÅÀÇ Á¤¹Ý´ë ¹æÇâ
+        if (dotVal < -0.9999f) // ê±°ì˜ ì •ë°˜ëŒ€ ë°©í–¥
         {
             quat = XMQuaternionRotationAxis(XMLoadFloat3(&up), XM_PI);
         }
