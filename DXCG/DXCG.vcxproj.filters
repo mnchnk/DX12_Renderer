@@ -67,6 +67,9 @@
       <Filter>SceneGraph</Filter>
     </ClCompile>
     <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="Application.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Asset\AssetImporter.h">
@@ -125,6 +128,9 @@
     </ClInclude>
     <ClInclude Include="SceneGraph\Transform.h">
       <Filter>SceneGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="Application.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

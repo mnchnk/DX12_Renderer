@@ -1,4 +1,4 @@
-#include "Graphics/GraphicsDevice.h"
+ï»¿#include "Graphics/GraphicsDevice.h"
 #include "Graphics/Util.h"
 
 void GraphicsDevice::EnableDebugLayer()
@@ -16,10 +16,10 @@ bool GraphicsDevice::Initialize()
 {
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&mDxgiFactory)));
 
-	//GPU ÇÏµå¿ş¾î ¾î´ğÅÍ
+	//GPU í•˜ë“œì›¨ì–´ ì–´ëŒ‘í„°
 	HRESULT hardwareResult = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mD3D12Device));
 
-	//CPU WARP ¾î´ğÅÍ, GPU°¡ ¾øÀ¸¸é CPU°¡ GPU Èä³»
+	//CPU WARP ì–´ëŒ‘í„°, GPUê°€ ì—†ìœ¼ë©´ CPUê°€ GPU í‰ë‚´
 	if (FAILED(hardwareResult))
 	{
 		ComPtr<IDXGIAdapter> pWarpAdapter;
