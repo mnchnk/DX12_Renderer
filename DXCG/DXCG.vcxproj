@@ -131,6 +131,7 @@
   <ItemGroup>
     <ClCompile Include="Asset\AssetImporter.cpp" />
     <ClCompile Include="Asset\ModelLoader.cpp" />
+    <ClCompile Include="Core\Application.cpp" />
     <ClCompile Include="Core\GameTimer.cpp" />
     <ClCompile Include="Core\InputManager.cpp" />
     <ClCompile Include="Graphics\CommandQueue.cpp" />
@@ -150,6 +151,7 @@
   <ItemGroup>
     <ClInclude Include="Asset\AssetImporter.h" />
     <ClInclude Include="Asset\ModelLoader.h" />
+    <ClInclude Include="Core\Application.h" />
     <ClInclude Include="Core\GameTimer.h" />
     <ClInclude Include="Core\InputManager.h" />
     <ClInclude Include="Graphics\CommandQueue.h" />

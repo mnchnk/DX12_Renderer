@@ -37,8 +37,6 @@ private:
 
 	HWND mHWnd;
 
-	GameTimer mTimer;
-
 	UINT mSrvDescSize = -1;
 
 	//FrameResource
@@ -122,8 +120,5 @@ public:
 	
 	//Picking
 	void Pick(int sx, int sy);
-
-	//Run
-	int Run();
 };
 

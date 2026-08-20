@@ -2,9 +2,10 @@
 
 #include <Windows.h>
 #include <crtdbg.h>
-#include "Graphics/Renderer.h"
+#include "core/Application.h"
 #include "Core/InputManager.h"
 #include <imgui.h>
+#include <memory>
 
 // imgui_impl_win32.h에 선언이 없어서 관례적으로 직접 extern 선언한다.
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
@@ -19,7 +20,7 @@ int Run();
 LRESULT CALLBACK
 WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-std::unique_ptr<Renderer> theApp = nullptr;
+std::unique_ptr<Application> theApp = nullptr;
 
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd)
@@ -31,7 +32,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCm
 	if (!InitWindowsApp(hInstance, nShowCmd))
 		return 0;
 
-	theApp = std::make_unique<Renderer>(ghMainWnd, 800, 600);
+	theApp = std::make_unique<Application>(ghMainWnd, 800, 600);
 
 	if (!theApp->Initialize())
 		return 0;
@@ -90,28 +91,6 @@ bool InitWindowsApp(HINSTANCE instanceHandle, int show)
 	return true;
 }
 
-int Run()
-{
-	MSG msg = { 0 };
-
-	BOOL bRet = 1;
-	while ((bRet = GetMessage(&msg, 0, 0, 0)) != 0) // GetMessage는 WM_QUIT를 받으면 0을 리턴 -> 루프 종료
-	{
-		if (bRet == -1)
-		{
-			MessageBox(0, L"GetMessage FAILED", L"ERROR", MB_OK);
-			break;
-		}
-		else
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
-
-	return (int)msg.wParam;
-}
-
 LRESULT CALLBACK
 WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -138,7 +117,7 @@ WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_LBUTTONDOWN:
 		InputManager::GetInstance()->SetLeftMouseDown(true);
 		if(theApp != nullptr)
-			theApp->Pick(LOWORD(lParam), HIWORD(lParam));
+			theApp->OnMouseDown(LOWORD(lParam), HIWORD(lParam));
 		return 0;
 
 	case WM_LBUTTONUP:
