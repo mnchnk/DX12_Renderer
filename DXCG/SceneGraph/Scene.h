@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 #include <vector>
 #include <memory>
 #include <unordered_map>
 #include "SceneGraph/GameObject.h"
-#include "Graphics/FrameResource.h"
+#include "Graphics/Light.h"
 #include "Graphics/RenderItem.h"
 
 class Scene
@@ -12,6 +12,8 @@ public:
 	Scene() = default;
 	~Scene() = default;
 	
+	void BuildScene();
+
 	GameObject* CreateGameObject(const std::string& name)
 	{
 		mGameObjects.push_back(std::make_unique<GameObject>(name));

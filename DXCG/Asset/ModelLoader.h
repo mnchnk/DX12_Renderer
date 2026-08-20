@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <vector>
 #include <memory>
 #include <d3d12.h>
-#include "Graphics/Util.h"          // MeshGeometry, SubmeshGeometry, CreateDefaultBuffer
-#include "Graphics/FrameResource.h" // Vertex
+#include "Graphics/Util.h"    // MeshGeometry, SubmeshGeometry, CreateDefaultBuffer
+#include "Graphics/Vertex.h"  // Vertex
 
 // One aiMesh. Pairs with a key in MeshGeometry::DrawArgs.
 struct LoadedSubmesh

@@ -15,6 +15,7 @@
 #include "Asset/ModelLoader.h"
 #include <array>
 #include <DirectXCollision.h>
+#include "Graphics/ResourceManager.h"
 
 class Renderer
 {
@@ -46,10 +47,7 @@ private:
 
 	//RenderItem Cache
 	std::unordered_map<RenderItemType, std::vector<RenderItem*>> mRenderItemsByType;
-	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
-	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
-	std::unique_ptr<TextureManager> mTextureManger;
-	LoadedModel mCharacterModel;
+	std::unique_ptr<ResourceManager> mResources;
 
 	//CB
 	PassConstants mPassCB;
@@ -91,11 +89,8 @@ public:
 	bool InitializeShadersAndInputLayout();
 	bool InitializePSOs();
 
-	void InitializeShapesGeometry();
-	void InitializeMaterials();
 	void InitializeRenderItem();
 	void InitializeLights();
-	void LoadTextures();
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
 
 	//Update

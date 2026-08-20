@@ -1,9 +1,10 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <d3d12.h>
 #include <DirectXCollision.h>
-#include "Graphics/FrameResource.h" // Material
-#include "Graphics/Util.h" 
+#include "Graphics/Material.h"        // Material
+#include "Graphics/GraphicsCommon.h" // MaxFrameResource
+#include "Graphics/Util.h"           // MeshGeometry
 
 enum class RenderItemType
 {

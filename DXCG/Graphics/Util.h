@@ -10,6 +10,7 @@
 #include <d3dcompiler.h>
 #include <wrl.h>
 #include <unordered_map>
+#include "Core/MathHelper.h"   // MathHelper는 여기서 분리됨
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -26,44 +27,6 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
     const void* initData,
     UINT64 byteSize,
     Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer);
-
-
-class MathHelper
-{
-public:
-    static DirectX::XMFLOAT4X4 Identity4x4()
-    {
-        return { 1.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 1.0f, 0.0f ,0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f,
-                0.0f, 0.0f, 0.0f, 1.0f };
-    }
-
-    static DirectX::XMFLOAT4 QuaternionFromDirection(DirectX::XMFLOAT3 direction, DirectX::XMFLOAT3 up = { 0.0f, 1.0f, 0.0f })
-    {
-        using namespace DirectX;
-        XMVECTOR baseForward = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-        XMVECTOR target = XMVector3Normalize(XMLoadFloat3(&direction));
-
-        float dotVal = XMVectorGetX(XMVector3Dot(baseForward, target));
-
-        XMVECTOR quat;
-        if (dotVal < -0.9999f) // 거의 정반대 방향
-        {
-            quat = XMQuaternionRotationAxis(XMLoadFloat3(&up), XM_PI);
-        }
-        else
-        {
-            XMVECTOR axis = XMVector3Normalize(XMVector3Cross(baseForward, target));
-            float angle = acosf(dotVal);
-            quat = XMQuaternionRotationAxis(axis, angle);
-        }
-
-        XMFLOAT4 result;
-        XMStoreFloat4(&result, quat);
-        return result;
-    }
-};
 
 
 template<typename T>
