@@ -9,6 +9,7 @@
 #include "Graphics/CommandQueue.h"
 #include "Graphics/SwapChain.h"
 #include "Graphics/Util.h"
+#include "Graphics/Vertex.h"
 #include "SceneGraph/GameObject.h"
 #include "Asset/ModelLoader.h"
 #include <assimp/Importer.hpp>
@@ -184,9 +185,10 @@ bool Renderer::Initialize()
     mShadowMap = std::make_unique<ShadowMap>(mGraphicsDevice->GetDevice(), mClientWidth, mClientHeight);
     mScene = std::make_unique<Scene>();
 
-    // Geometry first: loading the model is what tells us which textures exist.
-    InitializeShapesGeometry();
-    LoadTextures();
+    mResources = std::make_unique<ResourceManager>();
+    mResources->Initialize(mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
+    mScene->Build(*mResources);
+    BuildRenderItemsByType();
 
     // The root signature and the SRV heap both need the final texture count,
     // so they must come after LoadTextures().
@@ -199,9 +201,6 @@ bool Renderer::Initialize()
         InitializePSOs()
         )) return false;
 
-    InitializeLights();
-    InitializeMaterials();
-    InitializeRenderItem();
     InitializeFrameResource();
 
     mMainCamera.SetPosition(0.0f, 0.0f, -5.0f);
@@ -222,7 +221,7 @@ bool Renderer::InitializeFrameResource()
 
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mMaterials.size()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mResources->GetMaterialCount()));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -273,7 +272,7 @@ bool Renderer::InitializeRootSignature()
 
 bool Renderer::InitializeDescriptorHeaps()
 {
-    UINT texCount = mTextureManger->GetTextureCount();
+    UINT texCount = mResources->GetTextureManager()->GetTextureCount();
     mSrvDescSize = mGraphicsDevice->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     UINT srvDescSize = mSrvDescSize;
 
@@ -296,7 +295,7 @@ bool Renderer::InitializeDescriptorHeaps()
     CD3DX12_GPU_DESCRIPTOR_HANDLE hGpu(mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
     // [0 .. texCount-1] textures
-    mTextureManger->InitializeDescriptor(mGraphicsDevice->GetDevice(), hCpu, srvDescSize);
+    mResources->GetTextureManager()->InitializeDescriptor(mGraphicsDevice->GetDevice(), hCpu, srvDescSize);
 
     // [texCount] shadow map
     mShadowSrvIndex = texCount;
@@ -378,252 +377,6 @@ bool Renderer::InitializePSOs()
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
     return true;
-}
-
-void Renderer::InitializeShapesGeometry()
-{
-
-    LoadedModel model;
-    std::string err;
-    if (ModelLoader::Load("Models/Ely By K.Atienza.fbx", mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList(), model, err))
-    {
-        OutputDebugStringA(("[ModelLoader] submeshes=" + std::to_string(model.Submeshes.size()) +
-            " materials=" + std::to_string(model.Materials.size()) + "\n").c_str());
-        mGeometries[model.Geometry->Name] = std::move(model.Geometry);
-        mCharacterModel = std::move(model);
-    }
-    else
-    {
-        OutputDebugStringA(("[ModelLoader] failed: " + err + "\n").c_str());
-    }
-
-    std::array<Vertex, 4> groundVertices =
-    {
-        Vertex({ XMFLOAT3(-10.0f, -1.0f, -10.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 5.0f) }),
-        Vertex({ XMFLOAT3(-10.0f, -1.0f, +10.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) }),
-        Vertex({ XMFLOAT3(+10.0f, -1.0f, +10.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(5.0f, 0.0f) }),
-        Vertex({ XMFLOAT3(+10.0f, -1.0f, -10.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(5.0f, 5.0f) }),
-    };
-
-    std::array<std::uint16_t, 6> groundIndices =
-    {
-        0, 1, 2,  0, 2, 3
-    };
-
-    const UINT groundVbByteSize = (UINT)groundVertices.size() * sizeof(Vertex);
-    const UINT groundIbByteSize = (UINT)groundIndices.size() * sizeof(std::uint16_t);
-
-    auto groundGeo = std::make_unique<MeshGeometry>();
-    groundGeo->Name = "groundGeo";
-
-    ThrowIfFailed(D3DCreateBlob(groundVbByteSize, &groundGeo->VertexBufferCPU));
-    CopyMemory(groundGeo->VertexBufferCPU->GetBufferPointer(), groundVertices.data(), groundVbByteSize);
-
-    ThrowIfFailed(D3DCreateBlob(groundIbByteSize, &groundGeo->IndexBufferCPU));
-    CopyMemory(groundGeo->IndexBufferCPU->GetBufferPointer(), groundIndices.data(), groundIbByteSize);
-
-    groundGeo->VertexBufferGPU = CreateDefaultBuffer(mGraphicsDevice->GetDevice(),
-        mCommandQueue->GetCommandList(), groundVertices.data(), groundVbByteSize, groundGeo->VertexBufferUploader);
-
-    groundGeo->IndexBufferGPU = CreateDefaultBuffer(mGraphicsDevice->GetDevice(),
-        mCommandQueue->GetCommandList(), groundIndices.data(), groundIbByteSize, groundGeo->IndexBufferUploader);
-
-    groundGeo->VertexByteStride = sizeof(Vertex);
-    groundGeo->VertexBufferByteSize = groundVbByteSize;
-    groundGeo->IndexFormat = DXGI_FORMAT_R16_UINT;
-    groundGeo->IndexBufferByteSize = groundIbByteSize;
-
-    SubmeshGeometry groundSubmesh;
-    groundSubmesh.IndexCount = (UINT)groundIndices.size();
-    groundSubmesh.StartIndexLocation = 0;
-    groundSubmesh.BaseVertexLocation = 0;
-
-    groundGeo->DrawArgs["grid"] = groundSubmesh;
-
-    mGeometries[groundGeo->Name] = std::move(groundGeo);
-}
-
-void Renderer::InitializeMaterials()
-{
-    auto plastic = std::make_unique<Material>();
-    plastic->Name = "plastic";
-    plastic->MatCBIndex = 0;
-    plastic->DiffuseSrvHeapIndex = -1;
-    plastic->DiffuseAlbedo = XMFLOAT4(0.0f, 0.2f, 0.6f, 1.0f);
-    plastic->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);      
-    plastic->Roughness = 0.2f;                                
-
-    auto wood = std::make_unique<Material>();
-    wood->Name = "wood";
-    wood->MatCBIndex = 1;
-    wood->DiffuseSrvHeapIndex = -1;
-    wood->DiffuseAlbedo = XMFLOAT4(0.4f, 0.2f, 0.0f, 1.0f);
-    wood->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-    wood->Roughness = 0.8f;
-
-    auto iron = std::make_unique<Material>();
-    iron->Name = "iron";
-    iron->MatCBIndex = 2;
-    iron->DiffuseSrvHeapIndex = -1;
-    iron->DiffuseAlbedo = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);    
-    iron->FresnelR0 = XMFLOAT3(0.56f, 0.57f, 0.58f);           
-    iron->Roughness = 0.4f;                                    
-
-    auto copper = std::make_unique<Material>();
-    copper->Name = "copper";
-    copper->MatCBIndex = 3;
-    copper->DiffuseSrvHeapIndex = -1;
-    copper->DiffuseAlbedo = XMFLOAT4(0.05f, 0.05f, 0.05f, 1.0f);
-    copper->FresnelR0 = XMFLOAT3(0.95f, 0.64f, 0.54f);         
-    copper->Roughness = 0.2f;                                  
-
-    auto gold = std::make_unique<Material>();
-    gold->Name = "gold";
-    gold->MatCBIndex = 4;
-    gold->DiffuseSrvHeapIndex = -1;
-    gold->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-    gold->FresnelR0 = XMFLOAT3(1.00f, 0.71f, 0.29f);          
-    gold->Roughness = 0.1f;                                   
-
-    mMaterials[plastic->Name] = std::move(plastic);
-    mMaterials[wood->Name] = std::move(wood);
-    mMaterials[iron->Name] = std::move(iron);
-    mMaterials[copper->Name] = std::move(copper);
-    mMaterials[gold->Name] = std::move(gold);
-
-    // Must run after the hand-written materials are in the map: MatCBIndex is
-    // derived from mMaterials.size(), so doing this first would hand out index 0
-    // 광원 방향 반대편으로 씬 반지름의 2배만큼 물러난 위치
-    for (size_t i = 0; i < mCharacterModel.Materials.size(); i++)
-    {
-        const LoadedMaterial& src = mCharacterModel.Materials[i];
-
-        auto mat = std::make_unique<Material>();
-        mat->Name = src.Name;
-        mat->MatCBIndex = (int)mMaterials.size();
-        mat->DiffuseAlbedo = src.DiffuseAlbedo;
-        mat->FresnelR0 = src.FresnelR0;
-        mat->Roughness = src.Roughness;
-
-        Texture* diffuse = mTextureManger->GetTexture(src.DiffuseTextureFile);
-        mat->DiffuseSrvHeapIndex = diffuse ? diffuse->SrvHeapIndex : -1;
-
-        Texture* normal = mTextureManger->GetTexture(src.NormalTextureFile);
-        mat->NormalSrvHeapIndex = normal ? normal->SrvHeapIndex : -1;
-
-        mMaterials[mat->Name] = std::move(mat);
-    }
-}
-
-void Renderer::InitializeRenderItem()
-{
-    UINT objCBIndex = 0;
-
-    // one RenderItem per submesh
-    MeshGeometry* charGeo = mGeometries["Ely By K.Atienza"].get();  // geo->Name is the model file stem
-    for (const LoadedSubmesh& sub : mCharacterModel.Submeshes)
-    {
-        auto ritem = std::make_unique<RenderItem>();
-
-        ritem->Name = sub.Name;
-        XMStoreFloat4x4(&ritem->World, XMMatrixIdentity());
-
-        ritem->ObjectCBIndex = objCBIndex++;
-        ritem->Geo = charGeo;
-        ritem->Mat = mMaterials[mCharacterModel.Materials[sub.MaterialIndex].Name].get();
-        ritem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-        const SubmeshGeometry& sm = charGeo->DrawArgs[sub.Name];
-        ritem->IndexCount = sm.IndexCount;
-        ritem->StartIndexLocation = sm.StartIndexLocation;
-        ritem->BaseVertexLocation = sm.BaseVertexLocation;
-        ritem->Bounds = sm.Bounds;
-        ritem->NumFramesDirty = MaxFrameResource;
-
-        mRenderItemsByType[RenderItemType::Opaque].push_back(ritem.get());
-
-        GameObject* go = mScene->CreateGameObject(sub.Name);
-        go->Render = ritem.get();
-        go->GetTransform().SetPosition(XMFLOAT3(0.0f, -1.0f, 0.0f));
-        go->GetTransform().SetScale(XMFLOAT3(0.01f, 0.01f, 0.01f));   // Mixamo models are authored in centimetres
-
-        mScene->CreateRenderItem(ritem);
-    }
-
-    // ground continues the same objCBIndex counter
-    auto groundRitem = std::make_unique<RenderItem>();
-
-    groundRitem->Name = "ground";
-    XMStoreFloat4x4(&groundRitem->World, XMMatrixIdentity());
-
-    groundRitem->ObjectCBIndex = objCBIndex++;
-    groundRitem->Geo = mGeometries["groundGeo"].get();
-    groundRitem->Mat = mMaterials["wood"].get();
-
-    groundRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-    groundRitem->IndexCount = groundRitem->Geo->DrawArgs["grid"].IndexCount;
-    groundRitem->StartIndexLocation = groundRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-    groundRitem->BaseVertexLocation = groundRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-
-    groundRitem->NumFramesDirty = 3;
-
-    groundRitem->Bounds.Center = XMFLOAT3(0.0f, -1.0f, 0.0f);
-    groundRitem->Bounds.Extents = XMFLOAT3(10.0f, 0.01f, 10.0f);
-
-    mRenderItemsByType[RenderItemType::Opaque].push_back(groundRitem.get());
-    GameObject* go = mScene->CreateGameObject(groundRitem->Name);
-    go->Render = groundRitem.get();
-    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
-    mScene->CreateRenderItem(groundRitem);
-}
-
-void Renderer::InitializeLights()
-{
-    auto mainDirectionalLight = std::make_unique<Light>();
-    mainDirectionalLight->Type = LightType::Directional;
-    mainDirectionalLight->Direction = { 0.57735f, -0.57735f, 0.57735f };
-    mainDirectionalLight->Strength = { 0.8f, 0.8f, 0.8f };
-    mMainLight = mainDirectionalLight.get();
-
-    auto pointLight1 = std::make_unique<Light>();
-    pointLight1->Type = LightType::Point;
-    pointLight1->Position = { 0.0f, 10.0f, 0.0f };
-    pointLight1->Strength = { 0.8f, 0.8f, 0.8f };
-
-    GameObject* go = mScene->CreateGameObject("mainDirectionalLight");
-    go->LightData = mainDirectionalLight.get();
-    go->GetTransform().SetRotation(MathHelper::QuaternionFromDirection(mainDirectionalLight->Direction));
-    mScene->CreateLight("Directional", mainDirectionalLight);
-    
-    go = mScene->CreateGameObject("pointLight1");
-    go->LightData = pointLight1.get();
-    go->GetTransform().SetPosition(pointLight1->Position);
-    mScene->CreateLight("Point", pointLight1);
-}
-
-void Renderer::LoadTextures()
-{
-    mTextureManger = std::make_unique<TextureManager>();
-
-    for (const LoadedMaterial& mat : mCharacterModel.Materials)
-    {
-        // the model references .png, but we load the converted .dds
-        auto toDds = [](std::string f) {
-            size_t dot = f.find_last_of('.');
-            return (dot == std::string::npos ? f : f.substr(0, dot)) + ".dds";
-            };
-
-        if (!mat.DiffuseTextureFile.empty())
-            mTextureManger->LoadTexture(mat.DiffuseTextureFile,
-                "Models/" + toDds(mat.DiffuseTextureFile),
-                mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
-
-        if (!mat.NormalTextureFile.empty())
-            mTextureManger->LoadTexture(mat.NormalTextureFile,
-                "Models/" + toDds(mat.NormalTextureFile),
-                mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
-    }
 }
 
 std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> Renderer::GetStaticSamplers()
@@ -854,7 +607,7 @@ void Renderer::UpdatePassConstants()
 
     float sceneRadius = 10.0f;
 
-    XMVECTOR lightDir = XMLoadFloat3(&mMainLight->Direction);
+    XMVECTOR lightDir = XMLoadFloat3(&mScene->GetMainLight()->Direction);
     XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // 광원 방향 반대편으로 씬 반지름의 2배만큼 물러난 위치
     XMVECTOR targetPos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -877,7 +630,7 @@ void Renderer::UpdateMaterialBuffer()
 {
     auto currMaterialBuffer = mCurrFrameResource->MaterialBuffer.get();
 
-    for (auto& e : mMaterials)
+    for (auto& e : mResources->GetAllMaterials())
     {
         Material* mat = e.second.get();
         if (mat->NumFramesDirty)
@@ -895,6 +648,17 @@ void Renderer::UpdateMaterialBuffer()
 
             mat->NumFramesDirty--;
         }
+    }
+}
+
+void Renderer::BuildRenderItemsByType()
+{
+    mRenderItemsByType.clear();
+
+    for (auto& go: mScene->GetGameObjects())
+    {
+        if (go->Render)
+            mRenderItemsByType[RenderItemType::Opaque].push_back(go->Render);
     }
 }
 

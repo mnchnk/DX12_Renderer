@@ -67,9 +67,8 @@
       <Filter>SceneGraph</Filter>
     </ClCompile>
     <ClCompile Include="WinMain.cpp" />
-    <ClCompile Include="Application.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
+    <ClCompile Include="Core\Application.cpp" />
+    <ClCompile Include="SceneGraph\ResourceManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Asset\AssetImporter.h">
@@ -129,8 +128,19 @@
     <ClInclude Include="SceneGraph\Transform.h">
       <Filter>SceneGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Application.h">
-      <Filter>Core</Filter>
+    <ClInclude Include="Core\Application.h" />
+    <ClInclude Include="SceneGraph\ResourceManager.h" />
+    <ClInclude Include="Graphics\GraphicsCommon.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Light.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Material.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Vertex.h">
+      <Filter>Graphics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

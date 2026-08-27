@@ -7,6 +7,7 @@ C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\CommandQueue.cpp;C:\Users\1113a\s
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\DDSTextureLoader.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\DDSTextureLoader.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\GraphicsDevice.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\GraphicsDevice.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\Renderer.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\Renderer.obj
+C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\ResourceManager.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\ResourceManager.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\ShadowMap.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\ShadowMap.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\SwapChain.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\SwapChain.obj
 C:\Users\1113a\source\repos\DXCG\DXCG\Graphics\TextureManager.cpp;C:\Users\1113a\source\repos\DXCG\DXCG\x64\Debug\TextureManager.obj
