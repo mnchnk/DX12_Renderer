@@ -187,6 +187,8 @@ bool Renderer::Initialize()
 
     mResources = std::make_unique<ResourceManager>();
     mResources->Initialize(mGraphicsDevice->GetDevice(), mCommandQueue->GetCommandList());
+    mScene->Build(*mResources);
+    BuildRenderItemsByType();
 
     // The root signature and the SRV heap both need the final texture count,
     // so they must come after LoadTextures().
@@ -199,8 +201,6 @@ bool Renderer::Initialize()
         InitializePSOs()
         )) return false;
 
-    InitializeLights();
-    InitializeRenderItem();
     InitializeFrameResource();
 
     mMainCamera.SetPosition(0.0f, 0.0f, -5.0f);
@@ -377,95 +377,6 @@ bool Renderer::InitializePSOs()
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
     return true;
-}
-
-void Renderer::InitializeRenderItem()
-{
-    UINT objCBIndex = 0;
-
-    // one RenderItem per submesh
-    MeshGeometry* charGeo = mResources->GetGeometry("Ely By K.Atienza");  // geo->Name is the model file stem
-    const LoadedModel& model = mResources->GetCharacterModel();
-
-    for (const LoadedSubmesh& sub : model.Submeshes)
-    {
-        auto ritem = std::make_unique<RenderItem>();
-
-        ritem->Name = sub.Name;
-        XMStoreFloat4x4(&ritem->World, XMMatrixIdentity());
-
-        ritem->ObjectCBIndex = objCBIndex++;
-        ritem->Geo = charGeo;
-        ritem->Mat = mResources->GetMaterial(model.Materials[sub.MaterialIndex].Name);
-        ritem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-        const SubmeshGeometry& sm = charGeo->DrawArgs[sub.Name];
-        ritem->IndexCount = sm.IndexCount;
-        ritem->StartIndexLocation = sm.StartIndexLocation;
-        ritem->BaseVertexLocation = sm.BaseVertexLocation;
-        ritem->Bounds = sm.Bounds;
-        ritem->NumFramesDirty = MaxFrameResource;
-
-        mRenderItemsByType[RenderItemType::Opaque].push_back(ritem.get());
-
-        GameObject* go = mScene->CreateGameObject(sub.Name);
-        go->Render = ritem.get();
-        go->GetTransform().SetPosition(XMFLOAT3(0.0f, -1.0f, 0.0f));
-        go->GetTransform().SetScale(XMFLOAT3(0.01f, 0.01f, 0.01f));   // Mixamo models are authored in centimetres
-
-        mScene->CreateRenderItem(ritem);
-    }
-
-    // ground continues the same objCBIndex counter
-    auto groundRitem = std::make_unique<RenderItem>();
-
-    groundRitem->Name = "ground";
-    XMStoreFloat4x4(&groundRitem->World, XMMatrixIdentity());
-
-    groundRitem->ObjectCBIndex = objCBIndex++;
-    groundRitem->Geo = mResources->GetGeometry("groundGeo");
-    groundRitem->Mat = mResources->GetMaterial("wood");
-
-    groundRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-    groundRitem->IndexCount = groundRitem->Geo->DrawArgs["grid"].IndexCount;
-    groundRitem->StartIndexLocation = groundRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-    groundRitem->BaseVertexLocation = groundRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
-
-    groundRitem->NumFramesDirty = 3;
-
-    groundRitem->Bounds.Center = XMFLOAT3(0.0f, -1.0f, 0.0f);
-    groundRitem->Bounds.Extents = XMFLOAT3(10.0f, 0.01f, 10.0f);
-
-    mRenderItemsByType[RenderItemType::Opaque].push_back(groundRitem.get());
-    GameObject* go = mScene->CreateGameObject(groundRitem->Name);
-    go->Render = groundRitem.get();
-    go->GetTransform().SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
-    mScene->CreateRenderItem(groundRitem);
-}
-
-void Renderer::InitializeLights()
-{
-    auto mainDirectionalLight = std::make_unique<Light>();
-    mainDirectionalLight->Type = LightType::Directional;
-    mainDirectionalLight->Direction = { 0.57735f, -0.57735f, 0.57735f };
-    mainDirectionalLight->Strength = { 0.8f, 0.8f, 0.8f };
-    mMainLight = mainDirectionalLight.get();
-
-    auto pointLight1 = std::make_unique<Light>();
-    pointLight1->Type = LightType::Point;
-    pointLight1->Position = { 0.0f, 10.0f, 0.0f };
-    pointLight1->Strength = { 0.8f, 0.8f, 0.8f };
-
-    GameObject* go = mScene->CreateGameObject("mainDirectionalLight");
-    go->LightData = mainDirectionalLight.get();
-    go->GetTransform().SetRotation(MathHelper::QuaternionFromDirection(mainDirectionalLight->Direction));
-    mScene->CreateLight("Directional", mainDirectionalLight);
-    
-    go = mScene->CreateGameObject("pointLight1");
-    go->LightData = pointLight1.get();
-    go->GetTransform().SetPosition(pointLight1->Position);
-    mScene->CreateLight("Point", pointLight1);
 }
 
 std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> Renderer::GetStaticSamplers()
@@ -696,7 +607,7 @@ void Renderer::UpdatePassConstants()
 
     float sceneRadius = 10.0f;
 
-    XMVECTOR lightDir = XMLoadFloat3(&mMainLight->Direction);
+    XMVECTOR lightDir = XMLoadFloat3(&mScene->GetMainLight()->Direction);
     XMVECTOR lightPos = -2.0f * sceneRadius * lightDir; // 광원 방향 반대편으로 씬 반지름의 2배만큼 물러난 위치
     XMVECTOR targetPos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -737,6 +648,17 @@ void Renderer::UpdateMaterialBuffer()
 
             mat->NumFramesDirty--;
         }
+    }
+}
+
+void Renderer::BuildRenderItemsByType()
+{
+    mRenderItemsByType.clear();
+
+    for (auto& go: mScene->GetGameObjects())
+    {
+        if (go->Render)
+            mRenderItemsByType[RenderItemType::Opaque].push_back(go->Render);
     }
 }
 

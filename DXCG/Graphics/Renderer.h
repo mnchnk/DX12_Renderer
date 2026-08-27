@@ -88,9 +88,6 @@ public:
 	bool InitializeDescriptorHeaps();
 	bool InitializeShadersAndInputLayout();
 	bool InitializePSOs();
-
-	void InitializeRenderItem();
-	void InitializeLights();
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 7> GetStaticSamplers();
 
 	//Update
@@ -110,6 +107,7 @@ public:
 	void FreeImGuiSrv(D3D12_CPU_DESCRIPTOR_HANDLE cpu);
 
 	//Draw
+	void BuildRenderItemsByType();
 	void Draw();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 	
