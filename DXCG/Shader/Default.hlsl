@@ -51,6 +51,13 @@ cbuffer cbPass : register(b1)
     Light gLights[MaxLights];
 };
 
+#ifdef SKINNED
+cbuffer cbSkinned : register(b2)
+{
+    float4x4 gBoneTransforms[96];
+};
+#endif
+
 // Must match the C++ MaterialData struct in Graphics/FrameResource.h byte for byte.
 struct MaterialData
 {
@@ -77,6 +84,11 @@ struct VertexIn
     float3 NormalL : NORMAL;
     float2 TexC : TEXCOORD;
     float3 TangentL : TANGENT;
+    
+#ifdef SKINNED
+    uint4 BoneIndices : BLENDINDICES;
+    float4 BoneWeights : BLENDWEIGHT;
+#endif
 };
 
 struct VertexOut
@@ -129,17 +141,32 @@ VertexOut VS(VertexIn vin)
 {
     VertexOut vout = (VertexOut) 0.0f;
 
-    float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    float3 posL = vin.PosL;
+    float3 normalL = vin.NormalL;
+    float3 tangentL = vin.TangentL;
+
+#ifdef SKINNED
+    // 본 4개의 영향을 가중치로 섞는다.
+    posL = 0.0f; normalL = 0.0f; tangentL = 0.0f;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        float w = vin.BoneWeights[i];
+        float4x4 boneM = gBoneTransforms[vin.BoneIndices[i]];
+
+        posL     += w * mul(float4(vin.PosL, 1.0f), boneM).xyz;
+        normalL  += w * mul(vin.NormalL,  (float3x3)boneM);
+        tangentL += w * mul(vin.TangentL, (float3x3)boneM);
+    }
+#endif
+
+    // 이하 기존 코드에서 vin.PosL -> posL 로만 바꾸면 된다
+    float4 posW = mul(float4(posL, 1.0f), gWorld);
     vout.PosW = posW.xyz;
-
-    vout.NormalW = mul(vin.NormalL, (float3x3) gWorld);
-    vout.TangentW = mul(vin.TangentL, (float3x3) gWorld);
+    vout.NormalW = mul(normalL, (float3x3) gWorld);
+    vout.TangentW = mul(tangentL, (float3x3) gWorld);
     vout.PosH = mul(posW, gViewProj);
-
-    // Without this every pixel samples texel (0,0).
     vout.TexC = vin.TexC;
-
-    // Same position in light space, used to look up the shadow map.
     vout.ShadowPosH = mul(posW, gLightViewProj);
 
     return vout;

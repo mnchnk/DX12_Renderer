@@ -39,13 +39,16 @@ void ResourceManager::LoadModels(ID3D12Device* device, ID3D12GraphicsCommandList
     LoadedModel model;
     std::string err;
 
-    if (ModelLoader::Load("Models/Ely By K.Atienza.fbx", device, cmdList, model, err))
+    if (ModelLoader::Load("Models/Hip Hop Dancing.fbx", device, cmdList, model, err))
     {
         OutputDebugStringA(("[ModelLoader] submeshes=" + std::to_string(model.Submeshes.size()) +
             " materials=" + std::to_string(model.Materials.size()) + "\n").c_str());
 
-        mGeometries[model.Geometry->Name] = std::move(model.Geometry);
-        mCharacterModel = std::move(model);   // Submeshes/Materials 정보는 남는다
+        // Geometry는 move되어 사라지므로 키를 미리 기억해둔다.
+        mCharacterGeoName = model.Geometry->Name;
+
+        mGeometries[mCharacterGeoName] = std::move(model.Geometry);
+        mCharacterModel = std::move(model);   // Submeshes/Materials/Skeleton은 남는다
     }
     else
     {

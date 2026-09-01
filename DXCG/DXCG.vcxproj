@@ -129,6 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Animation\AnimationPlayer.cpp" />
     <ClCompile Include="Asset\AssetImporter.cpp" />
     <ClCompile Include="Asset\ModelLoader.cpp" />
     <ClCompile Include="Core\Application.cpp" />
@@ -150,6 +151,8 @@
     <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animation\Skeleton.h" />
+    <ClInclude Include="Animation\AnimationPlayer.h" />
     <ClInclude Include="Asset\AssetImporter.h" />
     <ClInclude Include="Asset\ModelLoader.h" />
     <ClInclude Include="Core\Application.h" />
@@ -187,6 +190,11 @@
     <FxCompile Include="Shader\ShadowVS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shader\SkinnedVS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </Text>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

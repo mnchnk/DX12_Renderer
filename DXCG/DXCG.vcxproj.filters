@@ -16,8 +16,14 @@
     <Filter Include="Shader">
       <UniqueIdentifier>{5e3e3bfb-3c22-4402-b12d-9de1ea3aaac1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Animation">
+      <UniqueIdentifier>{d88b5610-e912-460e-985c-2659cc7808e8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Animation\AnimationPlayer.cpp">
+      <Filter>Animation</Filter>
+    </ClCompile>
     <ClCompile Include="Asset\AssetImporter.cpp">
       <Filter>Asset</Filter>
     </ClCompile>
@@ -67,10 +73,17 @@
       <Filter>SceneGraph</Filter>
     </ClCompile>
     <ClCompile Include="WinMain.cpp" />
-    <ClCompile Include="Core\Application.cpp" />
-    <ClCompile Include="SceneGraph\ResourceManager.cpp" />
+    <ClCompile Include="Core\Application.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\ResourceManager.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animation\AnimationPlayer.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
     <ClInclude Include="Asset\AssetImporter.h">
       <Filter>Asset</Filter>
     </ClInclude>
@@ -128,8 +141,6 @@
     <ClInclude Include="SceneGraph\Transform.h">
       <Filter>SceneGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Application.h" />
-    <ClInclude Include="SceneGraph\ResourceManager.h" />
     <ClInclude Include="Graphics\GraphicsCommon.h">
       <Filter>Graphics</Filter>
     </ClInclude>
@@ -141,6 +152,18 @@
     </ClInclude>
     <ClInclude Include="Graphics\Vertex.h">
       <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Application.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\ResourceManager.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation\Skeleton.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\MathHelper.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

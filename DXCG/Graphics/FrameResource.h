@@ -43,10 +43,15 @@ struct PassConstants
     LightData Lights[MAXLIGHT];
 };
 
+struct SkinnedConstants
+{
+    DirectX::XMFLOAT4X4 BoneTransforms[96];
+};
+
 struct FrameResource
 {
 public:
-    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
+    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount, UINT SkinCount)
     {
         // One allocator per frame. An allocator may only be Reset once the GPU has
         // finished every command list recorded from it, so sharing a single one
@@ -57,6 +62,9 @@ public:
         PassCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
         ObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
         MaterialBuffer = std::make_unique<UploadBuffer<MaterialData>>(device, materialCount, false);
+        // CBV로 바인딩하므로 true. false면 256바이트 정렬이 안 돼서
+        // SetGraphicsRootConstantBufferView가 실패한다.
+        SkinnedCB = std::make_unique<UploadBuffer<SkinnedConstants>>(device, SkinCount, true);
     }
 
     FrameResource(const FrameResource& rhs) = delete;
@@ -68,6 +76,6 @@ public:
     std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
     std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
     std::unique_ptr<UploadBuffer<MaterialData>> MaterialBuffer = nullptr;
-    
+    std::unique_ptr<UploadBuffer<SkinnedConstants>> SkinnedCB = nullptr;
     UINT64 Fence = 0;
 };

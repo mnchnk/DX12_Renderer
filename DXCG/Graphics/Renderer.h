@@ -57,7 +57,6 @@ private:
 	
 	//Light, Shadow
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
-	Light* mMainLight = nullptr;
 
 	ComPtr<ID3D12DescriptorHeap> mSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
@@ -97,6 +96,7 @@ public:
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
 	void UpdateMaterialBuffer();
+	void UpdateSkinnedConstants();
 
 	//ImGui
 	bool InitializeImGui();

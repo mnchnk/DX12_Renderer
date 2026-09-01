@@ -219,9 +219,18 @@ bool Renderer::Initialize()
 bool Renderer::InitializeFrameResource()
 {
 
+    // 본 팔레트는 캐릭터 하나당 한 벌. 스킨드 캐릭터가 없어도 0개짜리 버퍼는
+    // 만들 수 없으므로 최소 1은 확보한다.
+    const UINT skinnedCount = (mScene->GetSkinnedCount() > 0) ? mScene->GetSkinnedCount() : 1;
+
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mResources->GetMaterialCount()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(
+            mGraphicsDevice->GetDevice(),
+            1,                                              // passCount
+            (UINT)mScene->GetAllRenderItems().size(),       // objectCount
+            (UINT)mResources->GetMaterialCount(),           // materialCount
+            skinnedCount));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -237,7 +246,7 @@ bool Renderer::InitializeRootSignature()
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 
-    CD3DX12_ROOT_PARAMETER slotRootParameter[5];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[6];
 
     slotRootParameter[0].InitAsConstantBufferView(0);
     slotRootParameter[1].InitAsConstantBufferView(1);
@@ -245,9 +254,14 @@ bool Renderer::InitializeRootSignature()
     slotRootParameter[3].InitAsDescriptorTable(1, &shadowTable);
     slotRootParameter[4].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
+    // 본 팔레트(cbSkinned, register b2).
+    // 루트 파라미터 인덱스(5)와 HLSL register 번호(b2)는 서로 달라도 된다.
+    // 기존 번호를 밀지 않으려고 맨 뒤에 붙였다.
+    slotRootParameter[5].InitAsConstantBufferView(2);
+
     auto staticSamplers = GetStaticSamplers();
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter,
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(6, slotRootParameter,
         (UINT)staticSamplers.size(), staticSamplers.data(),
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -315,7 +329,15 @@ bool Renderer::InitializeDescriptorHeaps()
 
 bool Renderer::InitializeShadersAndInputLayout()
 {
+
+    const D3D_SHADER_MACRO skinnedDefines[] =
+    {
+        "SKINNED", "1",
+        NULL, NULL          // 배열 끝 표시. 빠뜨리면 컴파일러가 계속 읽는다
+    };
+
     mShaders["standardVS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["skinnedVS"] = CompileShader(L"Shader\\Default.hlsl", skinnedDefines, "VS", "vs_5_1");
     mShaders["PBRPS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayouts["default"] =
@@ -323,10 +345,15 @@ bool Renderer::InitializeShadersAndInputLayout()
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        // 스키닝용. 지금 셰이더는 안 쓰지만 Vertex 구조체와 오프셋을 맞춰둔다.
+        // (입력 레이아웃이 셰이더보다 많은 요소를 가져도 문제없다)
+        { "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_UINT,  0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "BLENDWEIGHT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 60, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     mShaders["shadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["skinnedShadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", skinnedDefines, "VS", "vs_5_1");
 
     mInputLayouts["shadow"] =
     {
@@ -376,6 +403,23 @@ bool Renderer::InitializePSOs()
     shadowPsoDesc.SampleDesc.Count = 1;
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
+
+    // ---- 스킨드 버전 ----
+    // 나머지 상태는 그대로 두고 VS만 스키닝 버전으로 바꾼다.
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC skinnedPsoDesc = psoDesc;
+    skinnedPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["skinnedVS"]->GetBufferPointer()),
+                          mShaders["skinnedVS"]->GetBufferSize() };
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&skinnedPsoDesc, IID_PPV_ARGS(&mPSOs["skinned_opaque"])));
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC skinnedShadowPsoDesc = shadowPsoDesc;
+    // "shadow" 레이아웃은 POSITION만 있어서 본 데이터가 안 들어온다.
+    // 스킨드 그림자는 BLENDINDICES/BLENDWEIGHT가 있는 "default" 레이아웃을 써야 한다.
+    skinnedShadowPsoDesc.InputLayout = { mInputLayouts["default"].data(), (UINT)mInputLayouts["default"].size() };
+    skinnedShadowPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["skinnedShadowVS"]->GetBufferPointer()),
+                                mShaders["skinnedShadowVS"]->GetBufferSize() };
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&skinnedShadowPsoDesc, IID_PPV_ARGS(&mPSOs["skinned_shadow"])));
+
     return true;
 }
 
@@ -463,11 +507,16 @@ void Renderer::Update(float dt)
     BuildDebugUI();
     ImGui::Render();   // 위젯을 정점 데이터로 변환만 함. GPU 명령은 Draw()에서.
 
+    // 애니메이션은 Scene이 소유한다. 여기서는 시간을 진행시키고
+    // 결과 팔레트를 상수 버퍼로 올리기만 한다.
+    mScene->GetAnimation().Update(dt);
+
     SyncTransforms();
     SyncLights();
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
+    UpdateSkinnedConstants();
 
     // UI 위에서 드래그할 때 카메라가 같이 돌아가지 않도록 막는다.
     ImGuiIO& io = ImGui::GetIO();
@@ -657,9 +706,34 @@ void Renderer::BuildRenderItemsByType()
 
     for (auto& go: mScene->GetGameObjects())
     {
-        if (go->Render)
-            mRenderItemsByType[RenderItemType::Opaque].push_back(go->Render);
+        if (!go->Render) continue;
+
+        // PSO가 다르므로 목록을 나눠 담는다.
+        RenderItemType type = (go->Render->SkinnedCBIndex >= 0)
+            ? RenderItemType::SkinnedOpaque
+            : RenderItemType::Opaque;
+
+        mRenderItemsByType[type].push_back(go->Render);
     }
+}
+
+void Renderer::UpdateSkinnedConstants()
+{
+    const auto& transforms = mScene->GetAnimation().GetBoneTransforms();
+    if (transforms.empty()) return;
+
+    SkinnedConstants sc;
+
+    // 상수 버퍼에 올릴 땐 전치해야 한다.
+    // HLSL은 행렬을 column-major로 읽고 DirectXMath는 row-major로 저장하기 때문.
+    const size_t count = (transforms.size() < 96) ? transforms.size() : 96;
+    for (size_t i = 0; i < count; ++i)
+    {
+        XMStoreFloat4x4(&sc.BoneTransforms[i],
+            XMMatrixTranspose(XMLoadFloat4x4(&transforms[i])));
+    }
+
+    mCurrFrameResource->SkinnedCB->CopyData(0, sc);
 }
 
 void Renderer::Draw()
@@ -687,11 +761,12 @@ void Renderer::Draw()
     auto passCB = mCurrFrameResource->PassCB->Resource();
     commandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
+    // 타입마다 PSO가 다르므로 나눠서 그린다.
     commandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
-    for (auto& e : mRenderItemsByType)
-    {
-        DrawRenderItems(commandList, e.second);
-    }
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
+    commandList->SetPipelineState(mPSOs["skinned_shadow"].Get());
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::SkinnedOpaque]);
 
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         mShadowMap->GetResource(),
@@ -721,7 +796,11 @@ void Renderer::Draw()
     commandList->SetGraphicsRootDescriptorTable(3, mShadowMap->Srv());
     commandList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
+    commandList->SetPipelineState(mPSOs["opaque"].Get());
     DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
+    commandList->SetPipelineState(mPSOs["skinned_opaque"].Get());
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::SkinnedOpaque]);
 
     // UI는 씬 위에 겹쳐 그려야 하므로 마지막.
     // 아직 백버퍼가 RENDER_TARGET 상태이고 mSrvHeap이 바인딩된 시점이어야 한다.
@@ -744,8 +823,10 @@ void Renderer::Draw()
 void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
     UINT objCBByteSize = CalcConstantBufferByteSize(sizeof(ObjectConstants));
+    UINT skinnedCBByteSize = CalcConstantBufferByteSize(sizeof(SkinnedConstants));
 
     auto objectCB = mCurrFrameResource->ObjectCB->Resource();
+    auto skinnedCB = mCurrFrameResource->SkinnedCB->Resource();
 
     for (int i = 0; i < ritems.size(); ++i)
     {
@@ -758,6 +839,16 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
         D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjectCBIndex * objCBByteSize;
 
         cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+
+        // 스킨드 아이템만 본 팔레트를 묶는다.
+        // 루트 파라미터 5번 = HLSL의 register(b2).
+        if (ri->SkinnedCBIndex >= 0)
+        {
+            D3D12_GPU_VIRTUAL_ADDRESS skinnedAddress =
+                skinnedCB->GetGPUVirtualAddress() + ri->SkinnedCBIndex * skinnedCBByteSize;
+
+            cmdList->SetGraphicsRootConstantBufferView(5, skinnedAddress);
+        }
 
         cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
     }

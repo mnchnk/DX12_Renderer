@@ -11,8 +11,17 @@ void TextureManager::LoadTexture(const std::string& name, const std::string& fil
 	std::wstring tempFilename(filename.begin(), filename.end());
 	tex->Filename = tempFilename;
 	tex->SrvHeapIndex = mTextureCount;
-	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(
-		device, cmdList, tex->Filename.c_str(), tex->Resource, tex->UploadHeap));
+	HRESULT hr = DirectX::CreateDDSTextureFromFile12(
+		device, cmdList, tex->Filename.c_str(), tex->Resource, tex->UploadHeap);
+
+	if (FAILED(hr))
+	{
+		// 텍스처 하나 없다고 프로그램 전체가 죽을 이유는 없다.
+		// 등록하지 않고 넘어가면 머티리얼의 SrvHeapIndex가 -1이 되고,
+		// 셰이더 가드가 그 머티리얼을 상수 색상으로 그린다.
+		OutputDebugStringA(("[TextureManager] failed to load: " + filename + "\n").c_str());
+		return;
+	}
 	
 	mTextures[name] = std::move(tex);
 	mTextureCount++;
