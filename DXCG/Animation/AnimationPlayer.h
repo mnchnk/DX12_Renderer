@@ -18,6 +18,12 @@ public:
     // Skeleton::Bones와 같은 순서. 상수 버퍼에 그대로 올린다.
     const std::vector<DirectX::XMFLOAT4X4>& GetBoneTransforms() const { return mBoneTransforms; }
 
+    // 스키닝용(OffsetMatrix가 곱해진) 팔레트와 달리, 본이 모델 공간의 어디에
+    // 있는지를 나타낸다. 뼈대를 눈으로 그릴 때 필요하다.
+    const std::vector<DirectX::XMFLOAT4X4>& GetBoneWorldTransforms() const { return mBoneWorldTransforms; }
+
+    const Skeleton* GetSkeleton() const { return mSkeleton; }
+
     bool IsPlaying() const { return mSkeleton != nullptr && mClip != nullptr; }
 
     float GetTimeSeconds() const { return mTimeSeconds; }
@@ -36,5 +42,6 @@ private:
     float mTimeSeconds = 0.0f;
     bool  mLoop = true;
 
-    std::vector<DirectX::XMFLOAT4X4> mBoneTransforms;
+    std::vector<DirectX::XMFLOAT4X4> mBoneTransforms;        // OffsetMatrix 포함 (스키닝용)
+    std::vector<DirectX::XMFLOAT4X4> mBoneWorldTransforms;   // OffsetMatrix 없음 (본의 실제 위치)
 };

@@ -114,6 +114,7 @@ void AnimationPlayer::ComputeBoneTransforms()
 
 	const size_t boneCount = mSkeleton->Bones.size();
 	mBoneTransforms.resize(boneCount);
+	mBoneWorldTransforms.resize(boneCount);
 
 	// 각 본의 "모델 공간 월드 행렬"을 임시로 담는다.
 	std::vector<XMMATRIX> worldMats(boneCount);
@@ -165,5 +166,9 @@ void AnimationPlayer::ComputeBoneTransforms()
 	{
 		XMMATRIX offset = XMLoadFloat4x4(&mSkeleton->Bones[i].OffsetMatrix);
 		XMStoreFloat4x4(&mBoneTransforms[i], offset * worldMats[i] * globalInv);
+
+		// OffsetMatrix를 빼면 "본이 모델 공간 어디에 있는가"가 된다.
+		// 4행이 곧 본의 위치, 1~3행이 본의 축 방향이다.
+		XMStoreFloat4x4(&mBoneWorldTransforms[i], worldMats[i] * globalInv);
 	}
 }

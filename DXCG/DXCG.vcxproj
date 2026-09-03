@@ -181,6 +181,9 @@
     <ClInclude Include="SceneGraph\Transform.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shader\BoneDebug.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Shader\Default.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>

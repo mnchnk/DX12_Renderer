@@ -176,5 +176,11 @@
     <FxCompile Include="Shader\ShadowVS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Shader\BoneDebug.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Shader\SkinnedVS.hlsl" />
   </ItemGroup>
 </Project>

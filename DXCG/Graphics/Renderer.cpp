@@ -107,6 +107,30 @@ void Renderer::BuildDebugUI()
     ImGui::Text("%.1f FPS (%.3f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
     ImGui::Text("draw items: %d", (int)mRenderItemsByType[RenderItemType::Opaque].size());
 
+    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        AnimationPlayer& anim = mScene->GetAnimation();
+
+        if (anim.IsPlaying())
+        {
+            float t = anim.GetTimeSeconds();
+            if (ImGui::SliderFloat("Time", &t, 0.0f, 20.0f))
+                anim.SetTimeSeconds(t);
+
+            bool loop = anim.IsLooping();
+            if (ImGui::Checkbox("Loop", &loop))
+                anim.SetLooping(loop);
+        }
+        else
+        {
+            ImGui::TextDisabled("no clip");
+        }
+
+        ImGui::Checkbox("Show Skeleton", &mShowSkeleton);
+        if (mShowSkeleton)
+            ImGui::SliderFloat("Axis Length", &mSkeletonAxisLength, 0.01f, 0.3f);
+    }
+
     if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
     {
         // 방향광 방향. SyncLights가 Transform에서 방향을 뽑으므로,
@@ -246,7 +270,7 @@ bool Renderer::InitializeRootSignature()
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 
-    CD3DX12_ROOT_PARAMETER slotRootParameter[6];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[7];
 
     slotRootParameter[0].InitAsConstantBufferView(0);
     slotRootParameter[1].InitAsConstantBufferView(1);
@@ -259,9 +283,12 @@ bool Renderer::InitializeRootSignature()
     // 기존 번호를 밀지 않으려고 맨 뒤에 붙였다.
     slotRootParameter[5].InitAsConstantBufferView(2);
 
+    // 뼈대 디버그용 (cbBoneDebug, register b3)
+    slotRootParameter[6].InitAsConstantBufferView(3);
+
     auto staticSamplers = GetStaticSamplers();
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(6, slotRootParameter,
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(7, slotRootParameter,
         (UINT)staticSamplers.size(), staticSamplers.data(),
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -355,6 +382,11 @@ bool Renderer::InitializeShadersAndInputLayout()
     mShaders["shadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
     mShaders["skinnedShadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", skinnedDefines, "VS", "vs_5_1");
 
+    // 뼈대 디버그. 정점 버퍼 없이 GS로 선을 만들어낸다.
+    mShaders["boneDebugVS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["boneDebugGS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "GS", "gs_5_1");
+    mShaders["boneDebugPS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "PS", "ps_5_1");
+
     mInputLayouts["shadow"] =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
@@ -419,6 +451,30 @@ bool Renderer::InitializePSOs()
     skinnedShadowPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["skinnedShadowVS"]->GetBufferPointer()),
                                 mShaders["skinnedShadowVS"]->GetBufferSize() };
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&skinnedShadowPsoDesc, IID_PPV_ARGS(&mPSOs["skinned_shadow"])));
+
+    // ---- 뼈대 디버그 ----
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC boneDebugPsoDesc = psoDesc;
+
+    // 정점 버퍼를 안 쓰므로 입력 레이아웃이 비어 있다.
+    // VS가 SV_VertexID로 상수 버퍼를 직접 읽는다.
+    boneDebugPsoDesc.InputLayout = { nullptr, 0 };
+
+    boneDebugPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["boneDebugVS"]->GetBufferPointer()),
+                            mShaders["boneDebugVS"]->GetBufferSize() };
+    boneDebugPsoDesc.GS = { reinterpret_cast<BYTE*>(mShaders["boneDebugGS"]->GetBufferPointer()),
+                            mShaders["boneDebugGS"]->GetBufferSize() };
+    boneDebugPsoDesc.PS = { reinterpret_cast<BYTE*>(mShaders["boneDebugPS"]->GetBufferPointer()),
+                            mShaders["boneDebugPS"]->GetBufferSize() };
+
+    // GS가 점을 받으므로 입력 토폴로지는 POINT.
+    // 출력이 선이어도 여기는 '입력' 기준이다.
+    boneDebugPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+
+    // 깊이 테스트를 끈다. 뼈대는 메시 안쪽에 있어서, 켜두면 몸에 가려 안 보인다.
+    boneDebugPsoDesc.DepthStencilState.DepthEnable = FALSE;
+    boneDebugPsoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&boneDebugPsoDesc, IID_PPV_ARGS(&mPSOs["bone_debug"])));
 
     return true;
 }
@@ -517,6 +573,7 @@ void Renderer::Update(float dt)
     UpdatePassConstants();
     UpdateMaterialBuffer();
     UpdateSkinnedConstants();
+    UpdateBoneDebugConstants();
 
     // UI 위에서 드래그할 때 카메라가 같이 돌아가지 않도록 막는다.
     ImGuiIO& io = ImGui::GetIO();
@@ -736,6 +793,39 @@ void Renderer::UpdateSkinnedConstants()
     mCurrFrameResource->SkinnedCB->CopyData(0, sc);
 }
 
+void Renderer::UpdateBoneDebugConstants()
+{
+    if (!mShowSkeleton) return;
+
+    const AnimationPlayer& anim = mScene->GetAnimation();
+    const Skeleton* skeleton = anim.GetSkeleton();
+    if (skeleton == nullptr) return;
+
+    const auto& worlds = anim.GetBoneWorldTransforms();
+    if (worlds.empty()) return;
+
+    BoneDebugConstants bc;
+    bc.BoneCount = (UINT)((worlds.size() < 96) ? worlds.size() : 96);
+    bc.AxisLength = mSkeletonAxisLength;
+
+    for (UINT i = 0; i < bc.BoneCount; ++i)
+    {
+        XMStoreFloat4x4(&bc.BoneWorld[i], XMMatrixTranspose(XMLoadFloat4x4(&worlds[i])));
+        bc.BoneParent[i] = XMINT4(skeleton->Bones[i].ParentIndex, 0, 0, 0);
+    }
+
+    // 본은 모델 공간 좌표다. 캐릭터 오브젝트의 월드 변환(위치/스케일)을 곱해야
+    // 화면상의 캐릭터와 겹친다.
+    XMMATRIX rootWorld = XMMatrixIdentity();
+    const auto& skinned = mRenderItemsByType[RenderItemType::SkinnedOpaque];
+    if (!skinned.empty())
+        rootWorld = XMLoadFloat4x4(&skinned[0]->World);
+
+    XMStoreFloat4x4(&bc.RootWorld, XMMatrixTranspose(rootWorld));
+
+    mCurrFrameResource->BoneDebugCB->CopyData(0, bc);
+}
+
 void Renderer::Draw()
 {
     auto cmdAllocator = mCurrFrameResource->CmdAllocator.Get();
@@ -802,6 +892,8 @@ void Renderer::Draw()
     commandList->SetPipelineState(mPSOs["skinned_opaque"].Get());
     DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::SkinnedOpaque]);
 
+    DrawSkeletonDebug(commandList);
+
     // UI는 씬 위에 겹쳐 그려야 하므로 마지막.
     // 아직 백버퍼가 RENDER_TARGET 상태이고 mSrvHeap이 바인딩된 시점이어야 한다.
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
@@ -852,6 +944,29 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
 
         cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
     }
+}
+
+void Renderer::DrawSkeletonDebug(ID3D12GraphicsCommandList* cmdList)
+{
+    if (!mShowSkeleton) return;
+
+    const Skeleton* skeleton = mScene->GetAnimation().GetSkeleton();
+    if (skeleton == nullptr || skeleton->Bones.empty()) return;
+
+    const UINT boneCount = (UINT)((skeleton->Bones.size() < 96) ? skeleton->Bones.size() : 96);
+
+    cmdList->SetPipelineState(mPSOs["bone_debug"].Get());
+
+    auto boneDebugCB = mCurrFrameResource->BoneDebugCB->Resource();
+    cmdList->SetGraphicsRootConstantBufferView(6, boneDebugCB->GetGPUVirtualAddress());
+
+    // 정점 버퍼도 인덱스 버퍼도 없다.
+    // "점 boneCount개를 그려라"라고만 하면 VS가 SV_VertexID로 알아서 읽어간다.
+    cmdList->IASetVertexBuffers(0, 0, nullptr);
+    cmdList->IASetIndexBuffer(nullptr);
+    cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+
+    cmdList->DrawInstanced(boneCount, 1, 0, 0);
 }
 
 void Renderer::Pick(int sx, int sy)
