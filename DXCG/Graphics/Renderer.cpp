@@ -107,6 +107,30 @@ void Renderer::BuildDebugUI()
     ImGui::Text("%.1f FPS (%.3f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
     ImGui::Text("draw items: %d", (int)mRenderItemsByType[RenderItemType::Opaque].size());
 
+    if (ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        AnimationPlayer& anim = mScene->GetAnimation();
+
+        if (anim.IsPlaying())
+        {
+            float t = anim.GetTimeSeconds();
+            if (ImGui::SliderFloat("Time", &t, 0.0f, 20.0f))
+                anim.SetTimeSeconds(t);
+
+            bool loop = anim.IsLooping();
+            if (ImGui::Checkbox("Loop", &loop))
+                anim.SetLooping(loop);
+        }
+        else
+        {
+            ImGui::TextDisabled("no clip");
+        }
+
+        ImGui::Checkbox("Show Skeleton", &mShowSkeleton);
+        if (mShowSkeleton)
+            ImGui::SliderFloat("Axis Length", &mSkeletonAxisLength, 0.01f, 0.3f);
+    }
+
     if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
     {
         // 방향광 방향. SyncLights가 Transform에서 방향을 뽑으므로,
@@ -219,9 +243,18 @@ bool Renderer::Initialize()
 bool Renderer::InitializeFrameResource()
 {
 
+    // 본 팔레트는 캐릭터 하나당 한 벌. 스킨드 캐릭터가 없어도 0개짜리 버퍼는
+    // 만들 수 없으므로 최소 1은 확보한다.
+    const UINT skinnedCount = (mScene->GetSkinnedCount() > 0) ? mScene->GetSkinnedCount() : 1;
+
     for (int i = 0; i < MaxFrameResource; i++)
     {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mGraphicsDevice->GetDevice(), 1, (UINT)mScene->GetAllRenderItems().size(), (UINT)mResources->GetMaterialCount()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(
+            mGraphicsDevice->GetDevice(),
+            1,                                              // passCount
+            (UINT)mScene->GetAllRenderItems().size(),       // objectCount
+            (UINT)mResources->GetMaterialCount(),           // materialCount
+            skinnedCount));
     }
 
     mCurrFrameResourceIndex = 0;
@@ -237,7 +270,7 @@ bool Renderer::InitializeRootSignature()
     CD3DX12_DESCRIPTOR_RANGE shadowTable;
     shadowTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
 
-    CD3DX12_ROOT_PARAMETER slotRootParameter[5];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[7];
 
     slotRootParameter[0].InitAsConstantBufferView(0);
     slotRootParameter[1].InitAsConstantBufferView(1);
@@ -245,9 +278,17 @@ bool Renderer::InitializeRootSignature()
     slotRootParameter[3].InitAsDescriptorTable(1, &shadowTable);
     slotRootParameter[4].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
+    // 본 팔레트(cbSkinned, register b2).
+    // 루트 파라미터 인덱스(5)와 HLSL register 번호(b2)는 서로 달라도 된다.
+    // 기존 번호를 밀지 않으려고 맨 뒤에 붙였다.
+    slotRootParameter[5].InitAsConstantBufferView(2);
+
+    // 뼈대 디버그용 (cbBoneDebug, register b3)
+    slotRootParameter[6].InitAsConstantBufferView(3);
+
     auto staticSamplers = GetStaticSamplers();
 
-    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter,
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(7, slotRootParameter,
         (UINT)staticSamplers.size(), staticSamplers.data(),
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -315,7 +356,15 @@ bool Renderer::InitializeDescriptorHeaps()
 
 bool Renderer::InitializeShadersAndInputLayout()
 {
+
+    const D3D_SHADER_MACRO skinnedDefines[] =
+    {
+        "SKINNED", "1",
+        NULL, NULL          // 배열 끝 표시. 빠뜨리면 컴파일러가 계속 읽는다
+    };
+
     mShaders["standardVS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["skinnedVS"] = CompileShader(L"Shader\\Default.hlsl", skinnedDefines, "VS", "vs_5_1");
     mShaders["PBRPS"] = CompileShader(L"Shader\\Default.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayouts["default"] =
@@ -323,10 +372,20 @@ bool Renderer::InitializeShadersAndInputLayout()
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        // 스키닝용. 지금 셰이더는 안 쓰지만 Vertex 구조체와 오프셋을 맞춰둔다.
+        // (입력 레이아웃이 셰이더보다 많은 요소를 가져도 문제없다)
+        { "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_UINT,  0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "BLENDWEIGHT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 60, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     mShaders["shadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["skinnedShadowVS"] = CompileShader(L"Shader\\ShadowVS.hlsl", skinnedDefines, "VS", "vs_5_1");
+
+    // 뼈대 디버그. 정점 버퍼 없이 GS로 선을 만들어낸다.
+    mShaders["boneDebugVS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "VS", "vs_5_1");
+    mShaders["boneDebugGS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "GS", "gs_5_1");
+    mShaders["boneDebugPS"] = CompileShader(L"Shader\\BoneDebug.hlsl", nullptr, "PS", "ps_5_1");
 
     mInputLayouts["shadow"] =
     {
@@ -376,6 +435,47 @@ bool Renderer::InitializePSOs()
     shadowPsoDesc.SampleDesc.Count = 1;
 
     ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&mPSOs["shadow_opaque"])));
+
+    // ---- 스킨드 버전 ----
+    // 나머지 상태는 그대로 두고 VS만 스키닝 버전으로 바꾼다.
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC skinnedPsoDesc = psoDesc;
+    skinnedPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["skinnedVS"]->GetBufferPointer()),
+                          mShaders["skinnedVS"]->GetBufferSize() };
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&skinnedPsoDesc, IID_PPV_ARGS(&mPSOs["skinned_opaque"])));
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC skinnedShadowPsoDesc = shadowPsoDesc;
+    // "shadow" 레이아웃은 POSITION만 있어서 본 데이터가 안 들어온다.
+    // 스킨드 그림자는 BLENDINDICES/BLENDWEIGHT가 있는 "default" 레이아웃을 써야 한다.
+    skinnedShadowPsoDesc.InputLayout = { mInputLayouts["default"].data(), (UINT)mInputLayouts["default"].size() };
+    skinnedShadowPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["skinnedShadowVS"]->GetBufferPointer()),
+                                mShaders["skinnedShadowVS"]->GetBufferSize() };
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&skinnedShadowPsoDesc, IID_PPV_ARGS(&mPSOs["skinned_shadow"])));
+
+    // ---- 뼈대 디버그 ----
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC boneDebugPsoDesc = psoDesc;
+
+    // 정점 버퍼를 안 쓰므로 입력 레이아웃이 비어 있다.
+    // VS가 SV_VertexID로 상수 버퍼를 직접 읽는다.
+    boneDebugPsoDesc.InputLayout = { nullptr, 0 };
+
+    boneDebugPsoDesc.VS = { reinterpret_cast<BYTE*>(mShaders["boneDebugVS"]->GetBufferPointer()),
+                            mShaders["boneDebugVS"]->GetBufferSize() };
+    boneDebugPsoDesc.GS = { reinterpret_cast<BYTE*>(mShaders["boneDebugGS"]->GetBufferPointer()),
+                            mShaders["boneDebugGS"]->GetBufferSize() };
+    boneDebugPsoDesc.PS = { reinterpret_cast<BYTE*>(mShaders["boneDebugPS"]->GetBufferPointer()),
+                            mShaders["boneDebugPS"]->GetBufferSize() };
+
+    // GS가 점을 받으므로 입력 토폴로지는 POINT.
+    // 출력이 선이어도 여기는 '입력' 기준이다.
+    boneDebugPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+
+    // 깊이 테스트를 끈다. 뼈대는 메시 안쪽에 있어서, 켜두면 몸에 가려 안 보인다.
+    boneDebugPsoDesc.DepthStencilState.DepthEnable = FALSE;
+    boneDebugPsoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+
+    ThrowIfFailed(mGraphicsDevice->GetDevice()->CreateGraphicsPipelineState(&boneDebugPsoDesc, IID_PPV_ARGS(&mPSOs["bone_debug"])));
+
     return true;
 }
 
@@ -463,11 +563,17 @@ void Renderer::Update(float dt)
     BuildDebugUI();
     ImGui::Render();   // 위젯을 정점 데이터로 변환만 함. GPU 명령은 Draw()에서.
 
+    // 애니메이션은 Scene이 소유한다. 여기서는 시간을 진행시키고
+    // 결과 팔레트를 상수 버퍼로 올리기만 한다.
+    mScene->GetAnimation().Update(dt);
+
     SyncTransforms();
     SyncLights();
     UpdateObjectConstants();
     UpdatePassConstants();
     UpdateMaterialBuffer();
+    UpdateSkinnedConstants();
+    UpdateBoneDebugConstants();
 
     // UI 위에서 드래그할 때 카메라가 같이 돌아가지 않도록 막는다.
     ImGuiIO& io = ImGui::GetIO();
@@ -657,9 +763,67 @@ void Renderer::BuildRenderItemsByType()
 
     for (auto& go: mScene->GetGameObjects())
     {
-        if (go->Render)
-            mRenderItemsByType[RenderItemType::Opaque].push_back(go->Render);
+        if (!go->Render) continue;
+
+        // PSO가 다르므로 목록을 나눠 담는다.
+        RenderItemType type = (go->Render->SkinnedCBIndex >= 0)
+            ? RenderItemType::SkinnedOpaque
+            : RenderItemType::Opaque;
+
+        mRenderItemsByType[type].push_back(go->Render);
     }
+}
+
+void Renderer::UpdateSkinnedConstants()
+{
+    const auto& transforms = mScene->GetAnimation().GetBoneTransforms();
+    if (transforms.empty()) return;
+
+    SkinnedConstants sc;
+
+    // 상수 버퍼에 올릴 땐 전치해야 한다.
+    // HLSL은 행렬을 column-major로 읽고 DirectXMath는 row-major로 저장하기 때문.
+    const size_t count = (transforms.size() < 96) ? transforms.size() : 96;
+    for (size_t i = 0; i < count; ++i)
+    {
+        XMStoreFloat4x4(&sc.BoneTransforms[i],
+            XMMatrixTranspose(XMLoadFloat4x4(&transforms[i])));
+    }
+
+    mCurrFrameResource->SkinnedCB->CopyData(0, sc);
+}
+
+void Renderer::UpdateBoneDebugConstants()
+{
+    if (!mShowSkeleton) return;
+
+    const AnimationPlayer& anim = mScene->GetAnimation();
+    const Skeleton* skeleton = anim.GetSkeleton();
+    if (skeleton == nullptr) return;
+
+    const auto& worlds = anim.GetBoneWorldTransforms();
+    if (worlds.empty()) return;
+
+    BoneDebugConstants bc;
+    bc.BoneCount = (UINT)((worlds.size() < 96) ? worlds.size() : 96);
+    bc.AxisLength = mSkeletonAxisLength;
+
+    for (UINT i = 0; i < bc.BoneCount; ++i)
+    {
+        XMStoreFloat4x4(&bc.BoneWorld[i], XMMatrixTranspose(XMLoadFloat4x4(&worlds[i])));
+        bc.BoneParent[i] = XMINT4(skeleton->Bones[i].ParentIndex, 0, 0, 0);
+    }
+
+    // 본은 모델 공간 좌표다. 캐릭터 오브젝트의 월드 변환(위치/스케일)을 곱해야
+    // 화면상의 캐릭터와 겹친다.
+    XMMATRIX rootWorld = XMMatrixIdentity();
+    const auto& skinned = mRenderItemsByType[RenderItemType::SkinnedOpaque];
+    if (!skinned.empty())
+        rootWorld = XMLoadFloat4x4(&skinned[0]->World);
+
+    XMStoreFloat4x4(&bc.RootWorld, XMMatrixTranspose(rootWorld));
+
+    mCurrFrameResource->BoneDebugCB->CopyData(0, bc);
 }
 
 void Renderer::Draw()
@@ -687,11 +851,12 @@ void Renderer::Draw()
     auto passCB = mCurrFrameResource->PassCB->Resource();
     commandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
+    // 타입마다 PSO가 다르므로 나눠서 그린다.
     commandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
-    for (auto& e : mRenderItemsByType)
-    {
-        DrawRenderItems(commandList, e.second);
-    }
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
+    commandList->SetPipelineState(mPSOs["skinned_shadow"].Get());
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::SkinnedOpaque]);
 
     commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         mShadowMap->GetResource(),
@@ -721,7 +886,13 @@ void Renderer::Draw()
     commandList->SetGraphicsRootDescriptorTable(3, mShadowMap->Srv());
     commandList->SetGraphicsRootDescriptorTable(4, mSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
+    commandList->SetPipelineState(mPSOs["opaque"].Get());
     DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::Opaque]);
+
+    commandList->SetPipelineState(mPSOs["skinned_opaque"].Get());
+    DrawRenderItems(commandList, mRenderItemsByType[RenderItemType::SkinnedOpaque]);
+
+    DrawSkeletonDebug(commandList);
 
     // UI는 씬 위에 겹쳐 그려야 하므로 마지막.
     // 아직 백버퍼가 RENDER_TARGET 상태이고 mSrvHeap이 바인딩된 시점이어야 한다.
@@ -744,8 +915,10 @@ void Renderer::Draw()
 void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
     UINT objCBByteSize = CalcConstantBufferByteSize(sizeof(ObjectConstants));
+    UINT skinnedCBByteSize = CalcConstantBufferByteSize(sizeof(SkinnedConstants));
 
     auto objectCB = mCurrFrameResource->ObjectCB->Resource();
+    auto skinnedCB = mCurrFrameResource->SkinnedCB->Resource();
 
     for (int i = 0; i < ritems.size(); ++i)
     {
@@ -759,8 +932,41 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
 
         cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
 
+        // 스킨드 아이템만 본 팔레트를 묶는다.
+        // 루트 파라미터 5번 = HLSL의 register(b2).
+        if (ri->SkinnedCBIndex >= 0)
+        {
+            D3D12_GPU_VIRTUAL_ADDRESS skinnedAddress =
+                skinnedCB->GetGPUVirtualAddress() + ri->SkinnedCBIndex * skinnedCBByteSize;
+
+            cmdList->SetGraphicsRootConstantBufferView(5, skinnedAddress);
+        }
+
         cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
     }
+}
+
+void Renderer::DrawSkeletonDebug(ID3D12GraphicsCommandList* cmdList)
+{
+    if (!mShowSkeleton) return;
+
+    const Skeleton* skeleton = mScene->GetAnimation().GetSkeleton();
+    if (skeleton == nullptr || skeleton->Bones.empty()) return;
+
+    const UINT boneCount = (UINT)((skeleton->Bones.size() < 96) ? skeleton->Bones.size() : 96);
+
+    cmdList->SetPipelineState(mPSOs["bone_debug"].Get());
+
+    auto boneDebugCB = mCurrFrameResource->BoneDebugCB->Resource();
+    cmdList->SetGraphicsRootConstantBufferView(6, boneDebugCB->GetGPUVirtualAddress());
+
+    // 정점 버퍼도 인덱스 버퍼도 없다.
+    // "점 boneCount개를 그려라"라고만 하면 VS가 SV_VertexID로 알아서 읽어간다.
+    cmdList->IASetVertexBuffers(0, 0, nullptr);
+    cmdList->IASetIndexBuffer(nullptr);
+    cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+
+    cmdList->DrawInstanced(boneCount, 1, 0, 0);
 }
 
 void Renderer::Pick(int sx, int sy)

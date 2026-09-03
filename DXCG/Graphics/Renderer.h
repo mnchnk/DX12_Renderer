@@ -57,7 +57,6 @@ private:
 	
 	//Light, Shadow
 	std::unique_ptr<ShadowMap> mShadowMap = nullptr;
-	Light* mMainLight = nullptr;
 
 	ComPtr<ID3D12DescriptorHeap> mSrvHeap;
 	ComPtr<ID3D12DescriptorHeap> mShadowDsvHeap;
@@ -77,6 +76,9 @@ private:
 	// 디버그 UI에서 조작하는 값들
 	float mShadowDepthBias = 100000.0f;
 	DirectX::XMFLOAT3 mLightDirection = { 0.57735f, -0.57735f, 0.57735f };
+
+	bool  mShowSkeleton = false;
+	float mSkeletonAxisLength = 0.05f;
 public:
 	Renderer(HWND hWnd, UINT clientWidth, UINT clientHeight) :mHWnd(hWnd), mClientWidth(clientWidth), mClientHeight(clientHeight) {}
 	~Renderer();
@@ -97,6 +99,8 @@ public:
 	void UpdateObjectConstants();
 	void UpdatePassConstants();
 	void UpdateMaterialBuffer();
+	void UpdateSkinnedConstants();
+	void UpdateBoneDebugConstants();
 
 	//ImGui
 	bool InitializeImGui();
@@ -110,6 +114,7 @@ public:
 	void BuildRenderItemsByType();
 	void Draw();
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+	void DrawSkeletonDebug(ID3D12GraphicsCommandList* cmdList);
 	
 	//Picking
 	void Pick(int sx, int sy);

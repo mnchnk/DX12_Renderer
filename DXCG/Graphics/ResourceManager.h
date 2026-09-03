@@ -33,6 +33,10 @@ public:
     TextureManager* GetTextureManager() const { return mTextureManager.get(); }
     const LoadedModel& GetCharacterModel() const { return mCharacterModel; }
 
+    // 캐릭터 지오메트리를 이름 대신 이걸로 가져온다.
+    // 모델 파일을 바꿔도 호출부를 안 고쳐도 되고, 못 찾으면 nullptr이다.
+    MeshGeometry* GetCharacterGeometry() const { return GetGeometry(mCharacterGeoName); }
+
     // Renderer가 MaterialBuffer를 채울 때 순회한다.
     const std::unordered_map<std::string, std::unique_ptr<Material>>& GetAllMaterials() const
     {
@@ -52,4 +56,5 @@ private:
     std::unique_ptr<TextureManager> mTextureManager;
 
     LoadedModel mCharacterModel;
+    std::string mCharacterGeoName;   // mGeometries에서의 키. 모델 로드 시 정해진다
 };

@@ -5,6 +5,7 @@
 #include "SceneGraph/GameObject.h"
 #include "Graphics/Light.h"
 #include "Graphics/RenderItem.h"
+#include "Animation/AnimationPlayer.h"
 
 // 참조로만 받으므로 전방 선언으로 충분하다.
 // 헤더에 ResourceManager.h를 포함하면 Scene을 쓰는 모든 곳이
@@ -47,6 +48,14 @@ public:
 	// 그림자맵을 만드는 기준이 되는 방향광. Renderer가 LightViewProj 계산에 쓴다.
 	Light* GetMainLight() const { return mMainLight; }
 
+	// 애니메이션은 "지금 씬이 어떤 상태인가"이므로 Scene이 소유한다.
+	// Renderer는 결과 팔레트를 읽어 상수 버퍼로 올리기만 한다.
+	AnimationPlayer& GetAnimation() { return mAnimation; }
+	const AnimationPlayer& GetAnimation() const { return mAnimation; }
+
+	// 본 팔레트가 필요한 캐릭터 수. FrameResource의 SkinnedCB 크기가 된다.
+	UINT GetSkinnedCount() const { return mSkinnedCount; }
+
 private:
 	void BuildLights();
 	void BuildRenderItems(ResourceManager& resources);
@@ -56,4 +65,7 @@ private:
 	std::unordered_map<std::string, std::vector<std::unique_ptr<Light>>> mAllLights;
 
 	Light* mMainLight = nullptr;   // mAllLights가 소유하고, 여기선 참조만 한다
+
+	AnimationPlayer mAnimation;
+	UINT mSkinnedCount = 0;
 };

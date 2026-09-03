@@ -5,6 +5,7 @@
 #include <d3d12.h>
 #include "Graphics/Util.h"    // MeshGeometry, SubmeshGeometry, CreateDefaultBuffer
 #include "Graphics/Vertex.h"  // Vertex
+#include "Animation/Skeleton.h"
 
 // One aiMesh. Pairs with a key in MeshGeometry::DrawArgs.
 struct LoadedSubmesh
@@ -35,6 +36,13 @@ struct LoadedModel
     std::unique_ptr<MeshGeometry> Geometry;
     std::vector<LoadedSubmesh> Submeshes;
     std::vector<LoadedMaterial> Materials;
+
+    // 스켈레톤이 없으면 Skeleton.IsEmpty()가 true이고 Clips도 비어 있다.
+    // 그런 모델은 정적 메시로 그리면 된다.
+    Skeleton Skeleton;
+    std::vector<AnimationClip> Clips;
+
+    bool HasSkeleton() const { return !Skeleton.IsEmpty(); }
 };
 
 class ModelLoader

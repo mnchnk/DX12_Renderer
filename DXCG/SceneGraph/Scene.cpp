@@ -6,16 +6,20 @@
 
 using namespace DirectX;
 
-namespace
-{
-    // 모델 파일명(확장자 제외)과 같아야 한다. ModelLoader가 geo->Name을 이걸로 정한다.
-    const char* kCharacterGeoName = "Ely By K.Atienza";
-}
-
 void Scene::Build(ResourceManager& resources)
 {
     BuildLights();
     BuildRenderItems(resources);
+
+    // 스켈레톤과 클립이 둘 다 있어야 재생할 수 있다.
+    const LoadedModel& model = resources.GetCharacterModel();
+    if (model.HasSkeleton() && !model.Clips.empty())
+    {
+        mAnimation.SetClip(&model.Skeleton, &model.Clips[0]);
+
+        OutputDebugStringA(("[Scene] playing clip \"" + model.Clips[0].Name +
+            "\" bones=" + std::to_string(model.Skeleton.Bones.size()) + "\n").c_str());
+    }
 }
 
 void Scene::BuildLights()
@@ -48,7 +52,7 @@ void Scene::BuildRenderItems(ResourceManager& resources)
 {
     UINT objCBIndex = 0;
 
-    MeshGeometry* charGeo = resources.GetGeometry(kCharacterGeoName);
+    MeshGeometry* charGeo = resources.GetCharacterGeometry();
     const LoadedModel& model = resources.GetCharacterModel();
 
     // 모델 로드에 실패하면 charGeo가 null이다. 여기서 걸러내지 않으면
@@ -59,6 +63,10 @@ void Scene::BuildRenderItems(ResourceManager& resources)
     }
     else
     {
+        // 이 캐릭터가 쓸 본 팔레트 슬롯. 서브메시가 여러 개여도 스켈레톤은
+        // 하나이므로 슬롯도 하나를 공유한다.
+        const int skinnedCBIndex = model.HasSkeleton() ? (int)mSkinnedCount++ : -1;
+
         // 서브메시 하나당 RenderItem 하나
         for (const LoadedSubmesh& sub : model.Submeshes)
         {
@@ -78,6 +86,7 @@ void Scene::BuildRenderItems(ResourceManager& resources)
             ritem->BaseVertexLocation = sm.BaseVertexLocation;
             ritem->Bounds = sm.Bounds;
             ritem->NumFramesDirty = MaxFrameResource;
+            ritem->SkinnedCBIndex = skinnedCBIndex;   // 스킨드 PSO로 그려진다
 
             GameObject* go = CreateGameObject(sub.Name);
             go->Render = ritem.get();
